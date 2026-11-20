@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "test": "npm run build && node --test dist/test/cards.test.js dist/test/safety.test.js dist/test/scoring.test.js",
+    "test": "npm run build && node --test dist/test/cards.test.js dist/test/risk_rules.test.js dist/test/safety.test.js dist/test/scoring.test.js",
     "dev": "tsc -w"
   },
   "dependencies": {
