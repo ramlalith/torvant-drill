@@ -231,16 +231,28 @@ export async function generateCardText(
   throw new Error(`Gemini card text failed the schema check: ${lastProblems.join("; ")}`);
 }
 
-/** Picks the newest Gemini model of a family ("pro" or "flash") available to this key. */
+/**
+ * Picks the newest Gemini model of a family ("pro" or "flash") available to this key.
+ * Accepts stable and "-preview" names; at the same version a stable name wins.
+ */
+export function chooseNewest(names: string[], family: "pro" | "flash"): string | null {
+  const re = new RegExp(`^(?:models/)?gemini-(\\d+(?:\\.\\d+)?)-${family}(-preview(?:-\\d{2}-\\d{2})?)?$`);
+  const found = names
+    .map((name) => ({ name: name.replace(/^models\//, ""), m: name.match(re) }))
+    .filter((x) => x.m)
+    .sort((a, b) => {
+      const dv = parseFloat(b.m![1]) - parseFloat(a.m![1]);
+      if (dv !== 0) return dv;
+      return (a.m![2] ? 1 : 0) - (b.m![2] ? 1 : 0); // stable before preview
+    });
+  return found.length ? found[0].name : null;
+}
+
 export async function pickNewestModel(apiKey: string, family: "pro" | "flash"): Promise<string> {
   const res = await fetch(`${API_BASE}/models?pageSize=1000`, { headers: { "x-goog-api-key": apiKey } });
   const data = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) throw new Error(data?.error?.message || `List models failed with status ${res.status}`);
-  const re = new RegExp(`^models/gemini-(\\d+(?:\\.\\d+)?)-${family}$`);
-  const found = ((data.models || []) as Array<{ name: string }>)
-    .map((m) => ({ name: m.name, match: m.name.match(re) }))
-    .filter((m) => m.match)
-    .sort((a, b) => parseFloat(b.match![1]) - parseFloat(a.match![1]));
-  if (!found.length) throw new Error(`No gemini-*-${family} model found for this key`);
-  return found[0].name.replace(/^models\//, "");
+  const chosen = chooseNewest(((data.models || []) as Array<{ name: string }>).map((m) => m.name), family);
+  if (!chosen) throw new Error(`No gemini-*-${family} model found for this key`);
+  return chosen;
 }

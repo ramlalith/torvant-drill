@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import { describe, it } from "node:test";
-import { buildUserPrompt, mergeLevel, validateModelCardText } from "../src/card_text";
+import { buildUserPrompt, chooseNewest, mergeLevel, validateModelCardText } from "../src/card_text";
 import { loadCards, toPublicCard } from "../src/cards_store";
 
 const good = {
@@ -66,5 +66,16 @@ describe("Public card view hides the answer", () => {
       }
       assert.ok(["low", "medium", "high"].includes(pub.level as string));
     }
+  });
+});
+
+describe("Model picker", () => {
+  it("picks the newest version, including preview names", () => {
+    const names = ["models/gemini-2.5-pro", "models/gemini-3.1-pro-preview", "models/gemini-3.8-flash", "models/gemini-2.5-flash"];
+    assert.strictEqual(chooseNewest(names, "pro"), "gemini-3.1-pro-preview");
+    assert.strictEqual(chooseNewest(names, "flash"), "gemini-3.8-flash");
+    assert.strictEqual(chooseNewest(["models/gemini-3.1-pro-preview", "models/gemini-3.1-pro"], "pro"), "gemini-3.1-pro");
+    assert.strictEqual(chooseNewest(["models/gemini-3.1-pro-preview-tts"], "pro"), null);
+    assert.strictEqual(chooseNewest(["models/gemini-3.1-pro-preview-06-05"], "pro"), "gemini-3.1-pro-preview-06-05");
   });
 });
