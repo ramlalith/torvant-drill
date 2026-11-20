@@ -4,12 +4,18 @@
   const playerId = "drill-" + Math.random().toString(36).substring(2, 10);
   const playId = "play-" + Date.now().toString(36) + "-" + Math.random().toString(36).substring(2, 6);
 
-  // Randomly assign card variant for this session (50/50)
-  const cardVariant = Math.random() < 0.5 ? "plain" : "torvant";
+  // Randomly pick which round (A/B) comes first, and which variant (plain/torvant) comes first.
+  // The player plays BOTH rounds and sees BOTH variants — one per round.
+  const roundOrder = Math.random() < 0.5 ? ["roundA", "roundB"] : ["roundB", "roundA"];
+  const variantOrder = Math.random() < 0.5 ? ["plain", "torvant"] : ["torvant", "plain"];
+
+  // playIndex tracks which play we're on (0 = first round, 1 = second round)
+  let playIndex = 0;
 
   let drillData = null;
   let cardTextMap = {}; // keyed by card_id, populated from data/card_text.json if available
-  let currentRoundKey = "roundA"; // 'roundA' then 'roundB'
+  let currentRoundKey = roundOrder[0];
+  let currentCardVariant = variantOrder[0];
   let currentCardIndex = 0;
   let currentCards = [];
   let roundDecisions = [];
@@ -23,26 +29,10 @@
   // DOM Container
   const container = document.getElementById("app");
 
-  // Fisher-Yates shuffle (returns a new array, does not mutate)
-  function shuffleArray(arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      const tmp = a[i];
-      a[i] = a[j];
-      a[j] = tmp;
-    }
-    return a;
-  }
-
   // Format decision text with symbol (never color alone)
   function formatChoice(decision) {
-    if (decision === "denied") {
-      return "🛑 Denied";
-    }
-    if (decision === "approved") {
-      return "✓ Approved";
-    }
+    if (decision === "denied") return "🛑 Denied";
+    if (decision === "approved") return "✓ Approved";
     return "⏳ Not Reached (Time Expired)";
   }
 
@@ -53,15 +43,21 @@
     return "ℹ️ LOW RISK";
   }
 
+  // Round letter for queue_id: "A" or "B"
+  function roundLetter(roundKey) {
+    return roundKey === "roundA" ? "A" : "B";
+  }
+
   // Asynchronously record decision to BigQuery endpoint (non-blocking)
-  function postDecisionToBigQuery(card, decision, seconds, reached, queueIndex) {
+  function postDecisionToBigQuery(card, decision, seconds, reached, positionIndex) {
     const payload = {
       play_id: playId,
       player_id: playerId,
       ts: new Date().toISOString(),
       round: drillData && drillData[currentRoundKey] ? drillData[currentRoundKey].name : currentRoundKey,
-      card_variant: cardVariant,
-      queue_id: String(queueIndex + 1),
+      card_variant: currentCardVariant,
+      queue_id: roundLetter(currentRoundKey),   // "A" or "B"
+      position: positionIndex + 1,              // 1-based position within the round
       card_id: card.id,
       risky: Boolean(card.isRisky),
       risk_type: card.risk_type || null,
@@ -129,8 +125,10 @@
         cardTextMap = {};
       }
 
-      currentRoundKey = "roundA";
-      startRound(currentRoundKey);
+      playIndex = 0;
+      currentRoundKey = roundOrder[0];
+      currentCardVariant = variantOrder[0];
+      startRound();
     } catch (err) {
       container.innerHTML = `
         <h2>Error Loading Drill</h2>
@@ -144,37 +142,32 @@
     }
   }
 
-  // Prepare a specific round (shuffles cards, does NOT start timers until first card is shown)
-  function startRound(roundKey) {
+  // Prepare the current round (cards keep fixed order — no shuffle)
+  function startRound() {
     if (roundTimer) {
       clearInterval(roundTimer);
       roundTimer = null;
     }
-    currentRoundKey = roundKey;
-    // Shuffle the round's cards for random order
-    currentCards = shuffleArray(drillData[roundKey].cards);
+    // Cards are taken as-is from server data (fixed order, risky cards at positions 4 and 7)
+    currentCards = drillData[currentRoundKey].cards;
     currentCardIndex = 0;
     roundDecisions = [];
     roundSecondsLeft = 75;
 
-    // Render the first card. Timer will start only after first card is inserted in DOM.
+    // Render the first card. Timer starts only after the first card is shown.
     renderPlayScreen();
   }
 
   // Timer logic for the round
   function startRoundTimer() {
-    if (roundTimer) {
-      clearInterval(roundTimer);
-    }
+    if (roundTimer) clearInterval(roundTimer);
 
     roundTimer = setInterval(() => {
       roundSecondsLeft--;
       const timerEl = document.getElementById("roundTimer");
       if (timerEl) {
         timerEl.textContent = `⏱ ${roundSecondsLeft}s`;
-        if (roundSecondsLeft <= 15) {
-          timerEl.classList.add("urgent");
-        }
+        if (roundSecondsLeft <= 15) timerEl.classList.add("urgent");
       }
 
       if (roundSecondsLeft <= 0) {
@@ -189,13 +182,7 @@
   async function handleTimeExpired() {
     while (currentCardIndex < currentCards.length) {
       const card = currentCards[currentCardIndex];
-      roundDecisions.push({
-        cardId: card.id,
-        decision: "not reached",
-        secondsTaken: 0
-      });
-
-      // Stream to BigQuery
+      roundDecisions.push({ cardId: card.id, decision: "not reached", secondsTaken: 0 });
       postDecisionToBigQuery(card, "not reached", 0, false, currentCardIndex);
       currentCardIndex++;
     }
@@ -229,10 +216,7 @@
   // Screen 2: Play Screen
   function renderPlayScreen() {
     if (currentCardIndex >= currentCards.length) {
-      if (roundTimer) {
-        clearInterval(roundTimer);
-        roundTimer = null;
-      }
+      if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
       finishRound();
       return;
     }
@@ -240,8 +224,7 @@
     const card = currentCards[currentCardIndex];
     const roundName = drillData[currentRoundKey].name || currentRoundKey;
     const progressText = `${currentCardIndex + 1} of ${currentCards.length}`;
-
-    const torvantSection = cardVariant === "torvant" ? buildTorvantSection(card) : "";
+    const torvantSection = currentCardVariant === "torvant" ? buildTorvantSection(card) : "";
 
     container.innerHTML = `
       <div class="status-bar">
@@ -280,7 +263,7 @@
     document.getElementById("denyBtn").addEventListener("click", () => handleDecision("denied"));
     document.getElementById("approveBtn").addEventListener("click", () => handleDecision("approved"));
 
-    // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM!
+    // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM
     cardStartTime = performance.now();
     if (currentCardIndex === 0 && !roundTimer) {
       startRoundTimer();
@@ -291,13 +274,7 @@
     const elapsedSeconds = Number(((performance.now() - cardStartTime) / 1000).toFixed(1));
     const card = currentCards[currentCardIndex];
 
-    roundDecisions.push({
-      cardId: card.id,
-      decision: decision,
-      secondsTaken: elapsedSeconds
-    });
-
-    // Write row to BigQuery (non-blocking)
+    roundDecisions.push({ cardId: card.id, decision: decision, secondsTaken: elapsedSeconds });
     postDecisionToBigQuery(card, decision, elapsedSeconds, true, currentCardIndex);
 
     currentCardIndex++;
@@ -306,10 +283,7 @@
 
   // Finish round and get server scoring
   async function finishRound() {
-    if (roundTimer) {
-      clearInterval(roundTimer);
-      roundTimer = null;
-    }
+    if (roundTimer) { clearInterval(roundTimer); roundTimer = null; }
 
     container.innerHTML = `<p class="lead-text">Calculating score...</p>`;
 
@@ -317,19 +291,13 @@
       const res = await fetch("/api/drill/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          roundKey: currentRoundKey,
-          decisions: roundDecisions
-        })
+        body: JSON.stringify({ roundKey: currentRoundKey, decisions: roundDecisions })
       });
 
       const score = await res.json();
 
-      if (currentRoundKey === "roundA") {
-        roundAScore = score;
-      } else {
-        roundBScore = score;
-      }
+      if (currentRoundKey === "roundA") roundAScore = score;
+      else roundBScore = score;
 
       renderScoreScreen(score);
     } catch (err) {
@@ -367,8 +335,9 @@
       `;
     });
 
-    const isRoundA = currentRoundKey === "roundA";
-    const nextButtonLabel = isRoundA ? "Next: Start Round B ▶" : "View Final Comparison ▶";
+    // After round 1 (playIndex 0), there is a second round to play
+    const isFirstPlay = playIndex === 0;
+    const nextButtonLabel = isFirstPlay ? "Next: Start Round 2 ▶" : "View Final Comparison ▶";
 
     container.innerHTML = `
       <h2>${escapeHtml(score.roundName)} Score</h2>
@@ -396,8 +365,12 @@
     `;
 
     document.getElementById("nextRoundBtn").addEventListener("click", () => {
-      if (isRoundA) {
-        startRound("roundB");
+      if (isFirstPlay) {
+        // Advance to the second round with the other variant
+        playIndex = 1;
+        currentRoundKey = roundOrder[1];
+        currentCardVariant = variantOrder[1];
+        startRound();
       } else {
         renderComparisonScreen();
       }
@@ -406,25 +379,29 @@
 
   // Screen 4: After Round Two - Comparison Side by Side with Link to /team
   function renderComparisonScreen() {
+    // Always display Round A on the left and Round B on the right
+    const scoreA = roundAScore;
+    const scoreB = roundBScore;
+
     container.innerHTML = `
       <h2>Drill Summary: Round A &amp; Round B</h2>
       <p class="lead-text">Session ID: ${playerId}</p>
 
       <div class="comparison-grid">
         <div class="round-card">
-          <h3>${escapeHtml(roundAScore.roundName)}</h3>
-          <p><strong>Caught:</strong> ${roundAScore.riskyCaught} / ${roundAScore.totalRisky} risky</p>
-          <p><strong>Wrong blocks:</strong> ${roundAScore.wronglyBlocked} / ${roundAScore.totalNormal} normal</p>
-          <p><strong>Speed:</strong> ${roundAScore.avgSecondsPerDecision}s / decision</p>
-          <p><strong>Result:</strong> ${escapeHtml(roundAScore.overallRating)}</p>
+          <h3>${escapeHtml(scoreA.roundName)}</h3>
+          <p><strong>Caught:</strong> ${scoreA.riskyCaught} / ${scoreA.totalRisky} risky</p>
+          <p><strong>Wrong blocks:</strong> ${scoreA.wronglyBlocked} / ${scoreA.totalNormal} normal</p>
+          <p><strong>Speed:</strong> ${scoreA.avgSecondsPerDecision}s / decision</p>
+          <p><strong>Result:</strong> ${escapeHtml(scoreA.overallRating)}</p>
         </div>
 
         <div class="round-card">
-          <h3>${escapeHtml(roundBScore.roundName)}</h3>
-          <p><strong>Caught:</strong> ${roundBScore.riskyCaught} / ${roundBScore.totalRisky} risky</p>
-          <p><strong>Wrong blocks:</strong> ${roundBScore.wronglyBlocked} / ${roundBScore.totalNormal} normal</p>
-          <p><strong>Speed:</strong> ${roundBScore.avgSecondsPerDecision}s / decision</p>
-          <p><strong>Result:</strong> ${escapeHtml(roundBScore.overallRating)}</p>
+          <h3>${escapeHtml(scoreB.roundName)}</h3>
+          <p><strong>Caught:</strong> ${scoreB.riskyCaught} / ${scoreB.totalRisky} risky</p>
+          <p><strong>Wrong blocks:</strong> ${scoreB.wronglyBlocked} / ${scoreB.totalNormal} normal</p>
+          <p><strong>Speed:</strong> ${scoreB.avgSecondsPerDecision}s / decision</p>
+          <p><strong>Result:</strong> ${escapeHtml(scoreB.overallRating)}</p>
         </div>
       </div>
 

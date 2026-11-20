@@ -6,7 +6,8 @@ export interface DecisionRow {
   ts: string; // ISO 8601 string
   round: string;
   card_variant: string;
-  queue_id: string;
+  queue_id: string;   // round letter: "A" or "B"
+  position: number;   // 1-based card position within the round
   card_id: string;
   risky: boolean;
   risk_type: string | null;
