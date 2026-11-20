@@ -11,6 +11,7 @@ export function calculateRoundScore(
   decisions: DecisionRecord[]
 ): RoundScore {
   let riskyCaught = 0;
+  let riskyApproved = 0;
   let totalRisky = 0;
   let wronglyBlocked = 0;
   let totalNormal = 0;
@@ -43,6 +44,8 @@ export function calculateRoundScore(
       const caught = decision === "denied";
       if (caught) {
         riskyCaught++;
+      } else if (decision === "approved") {
+        riskyApproved++;
       }
       riskyBreakdown.push({
         cardId: card.id,
@@ -70,13 +73,16 @@ export function calculateRoundScore(
       : 0;
 
   // Determine overall rating
-  // A player who denies everything must get a clearly poor result, because wrong blocks count.
+  // Rule 1: If the player approved any risky request, the result is "Missed a risky request", never Good or Excellent.
+  // Rule 2: A player who denies everything must get a clearly poor result, because wrong blocks count.
   let overallRating: RoundScore["overallRating"];
-  if (wronglyBlocked >= 4 || (riskyCaught === 0 && wronglyBlocked > 0)) {
+  if (riskyApproved > 0) {
+    overallRating = "Missed a risky request";
+  } else if (wronglyBlocked >= 4 || (riskyCaught === 0 && wronglyBlocked > 0)) {
     overallRating = "Poor (Blocked Everything)";
-  } else if (riskyCaught === totalRisky && wronglyBlocked === 0) {
+  } else if (riskyCaught === totalRisky && wronglyBlocked === 0 && notReached === 0) {
     overallRating = "Excellent";
-  } else if (riskyCaught >= 1 && wronglyBlocked <= 1) {
+  } else if (riskyCaught === totalRisky && wronglyBlocked <= 1 && notReached === 0) {
     overallRating = "Good";
   } else {
     overallRating = "Needs Attention";

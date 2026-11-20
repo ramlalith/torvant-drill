@@ -46,7 +46,28 @@ describe("Scoring Pure Function", () => {
     assert.strictEqual(result.avgSecondsPerDecision, 3.0);
   });
 
-  it("handles player who approves everything", () => {
+  it("evaluates to 'Missed a risky request' (never Good or Excellent) if any risky request is approved", () => {
+    // Player correctly approves all 6 normal cards, denies 1 risky card, but mistakenly approves 1 risky card
+    const decisions: DecisionRecord[] = mockCards.map((c) => {
+      if (c.id === "3") {
+        return { cardId: c.id, decision: "denied", secondsTaken: 2.0 }; // risky card 1 caught
+      }
+      if (c.id === "5") {
+        return { cardId: c.id, decision: "approved", secondsTaken: 2.0 }; // risky card 2 mistakenly approved
+      }
+      return { cardId: c.id, decision: "approved", secondsTaken: 2.0 }; // normal cards approved
+    });
+
+    const result = calculateRoundScore("Round A", mockCards, decisions);
+
+    assert.strictEqual(result.riskyCaught, 1);
+    assert.strictEqual(result.wronglyBlocked, 0);
+    assert.strictEqual(result.overallRating, "Missed a risky request");
+    assert.notStrictEqual(result.overallRating, "Good");
+    assert.notStrictEqual(result.overallRating, "Excellent");
+  });
+
+  it("handles player who approves everything with 'Missed a risky request'", () => {
     const decisions: DecisionRecord[] = mockCards.map((c) => ({
       cardId: c.id,
       decision: "approved",
@@ -58,6 +79,7 @@ describe("Scoring Pure Function", () => {
     assert.strictEqual(result.riskyCaught, 0);
     assert.strictEqual(result.wronglyBlocked, 0);
     assert.strictEqual(result.normalApproved, 6);
+    assert.strictEqual(result.overallRating, "Missed a risky request");
   });
 
   it("handles timeout with not reached cards correctly", () => {
@@ -72,6 +94,7 @@ describe("Scoring Pure Function", () => {
 
     assert.strictEqual(result.notReached, 5);
     assert.strictEqual(result.avgSecondsPerDecision, 20.0);
+    assert.strictEqual(result.overallRating, "Needs Attention");
   });
 
   it("is a pure function that does not mutate inputs", () => {

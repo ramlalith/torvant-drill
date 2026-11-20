@@ -22,7 +22,7 @@ export interface RoundScore {
   normalApproved: number;
   notReached: number;
   avgSecondsPerDecision: number;
-  overallRating: "Excellent" | "Good" | "Needs Attention" | "Poor (Blocked Everything)";
+  overallRating: "Excellent" | "Good" | "Needs Attention" | "Poor (Blocked Everything)" | "Missed a risky request";
   riskyBreakdown: Array<{
     cardId: string;
     task: string;

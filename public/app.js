@@ -277,7 +277,7 @@
   // Screen 3: Score Screen
   function renderScoreScreen(score) {
     let ratingClass = "rating-good";
-    if (score.overallRating.includes("Poor")) {
+    if (score.overallRating.includes("Poor") || score.overallRating.includes("Missed")) {
       ratingClass = "rating-poor";
     } else if (score.overallRating === "Excellent") {
       ratingClass = "rating-excellent";
