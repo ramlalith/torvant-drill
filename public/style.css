@@ -416,3 +416,19 @@ p, li, div {
 .explain-source { font-size: 16px; font-style: italic; }
 
 .site-footer { text-align: center; font-size: 18px; margin: 18px 0 28px; }
+
+/* Play screen: Deny and Approve stay pinned at the bottom of the screen, side by side,
+   so no card needs scrolling and both card designs are timed the same way. */
+.play-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: #f8fafc;
+  padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+  border-top: 2px solid #e2e8f0;
+}
+.play-actions .btn-large { min-height: 60px; margin: 0; }
+.play-actions .confirm-box { grid-column: 1 / -1; }

@@ -248,7 +248,7 @@
         </div>
       </div>
 
-      <div class="thumb-actions">
+      <div class="thumb-actions play-actions">
         <button id="denyBtn" class="btn-large btn-deny" aria-label="Deny this request">
           🛑 Deny
         </button>
