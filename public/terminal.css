@@ -51,6 +51,11 @@ body.term .drill-container > .thumb-actions:last-child { padding-bottom: var(--s
 .request-card { display: grid; gap: var(--s3); margin: 0 0 var(--s3); }
 .label-title::after { content: ":"; }
 .task-box { color: var(--text); font-weight: 600; margin: var(--s1) 0 0; }
+/* The task is a heading for screen readers; it keeps the body text size. */
+h2.task-box { font-size: var(--fs-body); line-height: 1.5; }
+h2.task-box:focus, #screenHeading:focus, #qThanks:focus { outline: none; }
+/* Items brought into view by keyboard stay clear of the sticky Approve and Deny bar. */
+html:has(.play-actions) { scroll-padding-bottom: 160px; }
 body.term .command-box {
   background: transparent;
   border: 0;

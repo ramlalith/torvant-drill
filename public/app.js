@@ -85,6 +85,20 @@
     } catch (_) {}
   }
 
+  // Screen readers: say a short line without moving focus.
+  function announce(text) {
+    const el = document.getElementById("announcer");
+    if (!el) return;
+    el.textContent = "";
+    setTimeout(() => { el.textContent = text; }, 50);
+  }
+
+  // Keyboard and screen readers: put focus on a new screen's main line, without scrolling.
+  function focusFirst(selector) {
+    const el = container.querySelector(selector);
+    if (el) el.focus({ preventScroll: true });
+  }
+
   // Screen 1: Start Screen
   function renderStartScreen() {
     container.innerHTML = `
@@ -95,7 +109,7 @@
       <p class="info-note">One round shows requests the way agents ask today. If the commands are hard to read, that is the point.</p>
 
       <div class="thumb-actions">
-        <button id="startBtn" class="btn-large btn-primary" aria-label="Start Torvant Drill">
+        <button id="startBtn" class="btn-large btn-primary">
           Start drill
         </button>
       </div>
@@ -158,14 +172,15 @@
     roundTimer = setInterval(() => {
       roundSecondsLeft--;
       const timerEl = document.getElementById("roundTimer");
-      if (timerEl) {
-        timerEl.textContent = `${roundSecondsLeft}s`;
-        if (roundSecondsLeft <= 15) timerEl.classList.add("urgent");
-      }
+      const timerNum = document.getElementById("timerNum");
+      if (timerNum) timerNum.textContent = `${roundSecondsLeft}s`;
+      if (timerEl && roundSecondsLeft <= 15) timerEl.classList.add("urgent");
+      if (roundSecondsLeft === 30 || roundSecondsLeft === 10) announce(`${roundSecondsLeft} seconds left`);
 
       if (roundSecondsLeft <= 0) {
         clearInterval(roundTimer);
         roundTimer = null;
+        announce("Time is up");
         handleTimeExpired();
       }
     }, 1000);
@@ -189,7 +204,7 @@
     const t = card.text;
     if (!t) {
       return `
-        <div class="torvant-panel panel-${level}" aria-label="Torvant card">
+        <div class="torvant-panel panel-${level}" role="group" aria-label="Torvant card">
           <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
           <div class="torvant-text">Card text not generated yet</div>
         </div>`;
@@ -198,7 +213,7 @@
     const undo = { yes: "Yes", no: "No", partly: "Partly" }[t.can_be_undone] || escapeHtml(t.can_be_undone);
     const raised = t.raised_by_model ? `<div class="torvant-note">Level raised by Gemini</div>` : "";
     return `
-      <div class="torvant-panel panel-${level}" aria-label="Torvant card">
+      <div class="torvant-panel panel-${level}" role="group" aria-label="Torvant card">
         <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
         ${raised}
         <dl class="torvant-facts">
@@ -231,23 +246,24 @@
     );
 
     container.innerHTML = `
+      <h1 class="sr-only">Torvant Drill: ${escapeHtml(variantTitle(currentCardVariant))}</h1>
       <div class="status-bar">
-        <span class="badge-progress" aria-label="Progress: ${progressText} in ${escapeHtml(roundName)}">
-          ${progressText} <span class="progress-bar" aria-hidden="true">${progressBar}</span>
+        <span class="badge-progress">
+          ${progressText}<span class="sr-only"> in ${escapeHtml(roundName)}</span> <span class="progress-bar" aria-hidden="true">${progressBar}</span>
         </span>
-        <span id="roundTimer" class="badge-timer ${roundSecondsLeft <= 15 ? 'urgent' : ''}" aria-label="Time remaining: ${roundSecondsLeft} seconds">
-          ${roundSecondsLeft}s
+        <span id="roundTimer" class="badge-timer ${roundSecondsLeft <= 15 ? 'urgent' : ''}">
+          <span class="sr-only">Time left </span><span id="timerNum">${roundSecondsLeft}s</span>
         </span>
       </div>
 
-      <div class="term-history" aria-label="Your last answers">
+      <div class="term-history" role="group" aria-label="Your last answers">
         ${history.map((line) => `<div>${escapeHtml(line)}</div>`).join("")}
       </div>
 
       <div class="request-card">
         <div>
           <div class="label-title">Task</div>
-          <div class="task-box">${escapeHtml(card.task)}</div>
+          <h2 class="task-box" id="taskHeading" tabindex="-1">${escapeHtml(card.task)}</h2>
         </div>
 
         ${torvantSection}
@@ -283,6 +299,8 @@
     // Every new card starts at the top, and taps are locked for its first moment.
     window.scrollTo(0, 0);
     tapGuard.cardShown();
+    focusFirst("#taskHeading");
+    announce(`${progressText}`);
 
     // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM
     cardStartTime = performance.now();
@@ -297,20 +315,25 @@
     const actions = container.querySelector(".thumb-actions");
     if (!actions) return;
     actions.innerHTML = `
-      <div class="confirm-box" role="alertdialog" aria-label="High risk confirmation">
-        <p class="confirm-text">This is high risk. Approve anyway?</p>
+      <div class="confirm-box" role="alertdialog" aria-labelledby="confirmText">
+        <p class="confirm-text" id="confirmText">This is high risk. Approve anyway?</p>
         <button id="goBackBtn" class="btn-large btn-deny" aria-label="Go back to the request">Go back</button>
         <button id="confirmApproveBtn" class="btn-large btn-approve" aria-label="Yes, approve anyway">Yes, approve</button>
       </div>`;
-    document.getElementById("goBackBtn").addEventListener("click", () => {
+    const goBack = () => {
       const keep = cardStartTime;
       renderPlayScreen();
       cardStartTime = keep;
+    };
+    document.getElementById("goBackBtn").addEventListener("click", goBack);
+    actions.querySelector(".confirm-box").addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); goBack(); }
     });
     document.getElementById("confirmApproveBtn").addEventListener("click", () => {
       if (tapGuard.tryTake()) handleDecision("approved");
     });
     tapGuard.cardShown();
+    document.getElementById("goBackBtn").focus({ preventScroll: true });
   }
 
   function handleDecision(decision) {
@@ -403,7 +426,8 @@
     const nextButtonLabel = isFirstPlay ? "Next: round 2" : "See the summary";
 
     container.innerHTML = `
-      <h2>${escapeHtml(variantTitle(score.cardVariant))}</h2>
+      <h1 class="sr-only">Torvant Drill: your score</h1>
+      <h2 id="screenHeading" tabindex="-1">${escapeHtml(variantTitle(score.cardVariant))}</h2>
 
       <div class="stats">
         <div class="stat"><span class="stat-num">${score.riskyCaught} of ${score.totalRisky}</span><span class="stat-label">Risky requests caught</span></div>
@@ -427,6 +451,8 @@
     `;
 
     wireExplainButtons();
+    window.scrollTo(0, 0);
+    focusFirst("#screenHeading");
 
     document.getElementById("nextRoundBtn").addEventListener("click", () => {
       if (isFirstPlay) {
@@ -448,7 +474,8 @@
     const scoreB = roundBScore;
 
     container.innerHTML = `
-      <h2>Drill summary</h2>
+      <h1 class="sr-only">Torvant Drill: summary</h1>
+      <h2 id="screenHeading" tabindex="-1">Drill summary</h2>
       <p class="lead-text">One round used the plain card. The other used the Torvant card. Order is random for each player.</p>
       <p class="lead-text">Session ID: ${playerId}</p>
 
@@ -476,12 +503,12 @@
 
       <section class="questions" id="questions" aria-label="Two optional questions">
         <h3>Two optional questions</h3>
-        <p class="q-text">On a normal work day, how many agent requests do you approve?</p>
-        <div class="q-options" data-q="approvals_per_day">
+        <p class="q-text" id="qText1">On a normal work day, how many agent requests do you approve?</p>
+        <div class="q-options" data-q="approvals_per_day" role="group" aria-labelledby="qText1">
           ${["None", "1 to 10", "11 to 50", "More than 50"].map((o) => `<button type="button" class="q-opt" aria-pressed="false">${o}</button>`).join("")}
         </div>
-        <p class="q-text">How many of them do you read fully?</p>
-        <div class="q-options" data-q="read_share">
+        <p class="q-text" id="qText2">How many of them do you read fully?</p>
+        <div class="q-options" data-q="read_share" role="group" aria-labelledby="qText2">
           ${["All", "Most", "Some", "Almost none"].map((o) => `<button type="button" class="q-opt" aria-pressed="false">${o}</button>`).join("")}
         </div>
         <div class="q-actions">
@@ -513,6 +540,8 @@
       location.reload();
     });
     wireQuestions();
+    window.scrollTo(0, 0);
+    focusFirst("#screenHeading");
   }
 
   // "Explain with Gemini (live)": calls Gemini now, with a timeout on the server.
@@ -520,7 +549,7 @@
   function explainButton(cardId) {
     return `
       <div class="explain-block">
-        <button class="btn-explain" data-card="${escapeHtml(cardId)}" aria-label="Explain this request with Gemini, live">
+        <button class="btn-explain" data-card="${escapeHtml(cardId)}">
           Explain with Gemini (live)
         </button>
         <div class="explain-out" aria-live="polite"></div>
@@ -594,10 +623,13 @@
           keepalive: true
         }).catch(() => {});
       } catch (_) {}
-      box.innerHTML = `<p class="info-note">Thank you.</p>`;
+      box.innerHTML = `<p class="info-note" id="qThanks" tabindex="-1">Thank you.</p>`;
+      document.getElementById("qThanks").focus();
     });
     document.getElementById("qSkip").addEventListener("click", () => {
       box.remove();
+      const next = container.querySelector(".thumb-actions a");
+      if (next) next.focus();
     });
   }
 

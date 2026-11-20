@@ -42,7 +42,7 @@
       <div id="riskTypesContainer"></div>
 
       <div class="thumb-actions">
-        <a href="/" class="btn-large" aria-label="Back to Torvant Drill">Back to the drill</a>
+        <a href="/" class="btn-large">Back to the drill</a>
       </div>
     </div>
   </main>
@@ -73,14 +73,16 @@
         // Plain card and Torvant card, one row per measure
         const plain = data.variants ? data.variants.find(v => v.card_variant === 'plain') : null;
         const torvant = data.variants ? data.variants.find(v => v.card_variant === 'torvant') : null;
-        const cell = (v, f) => v ? f(v) : 'No data yet';
+        // Each part is escaped. The count sits on its own line on a phone.
+        const cell = (v, f) => v ? f(v) : esc('No data yet');
+        const pctOf = (pct, n, total) => `${esc(pct)}%<span class="count"> (${esc(n)} of ${esc(total)})</span>`;
         const rows = [
-          ['Risky requests caught', v => `${v.risky_caught_pct}% (${v.risky_caught} of ${v.risky_reached})`],
-          ['Normal requests wrongly blocked', v => `${v.normal_blocked_pct}% (${v.normal_wrongly_blocked} of ${v.normal_reached})`],
-          ['Median seconds per decision', v => `${v.median_seconds}s`]
+          ['Risky requests caught', v => pctOf(v.risky_caught_pct, v.risky_caught, v.risky_reached)],
+          ['Normal requests wrongly blocked', v => pctOf(v.normal_blocked_pct, v.normal_wrongly_blocked, v.normal_reached)],
+          ['Median seconds per decision', v => `${esc(v.median_seconds)}s`]
         ];
         document.getElementById('variantRows').innerHTML = rows.map(([label, f]) =>
-          `<tr><td>${esc(label)}</td><td class="num">${esc(cell(plain, f))}</td><td class="num">${esc(cell(torvant, f))}</td></tr>`
+          `<tr><td>${esc(label)}</td><td class="num">${cell(plain, f)}</td><td class="num">${cell(torvant, f)}</td></tr>`
         ).join('');
 
         // What players told us (answers table)
@@ -102,7 +104,7 @@
           riskEl.innerHTML = '<p class="secondary">No risky decisions recorded yet.</p>';
         } else {
           riskEl.innerHTML = '<table class="data-table" aria-label="Risk type approvals"><thead><tr><th scope="col">Risk type</th><th scope="col" class="num">Approved</th></tr></thead><tbody>' +
-            data.risk_types.map(r => `<tr><td>${esc(r.risk_type)}</td><td class="num">${esc(r.approved_pct)}% (${esc(r.approved_count)} of ${esc(r.total_reached)})</td></tr>`).join('') +
+            data.risk_types.map(r => `<tr><td>${esc(r.risk_type)}</td><td class="num">${esc(r.approved_pct)}%<span class="count"> (${esc(r.approved_count)} of ${esc(r.total_reached)})</span></td></tr>`).join('') +
             '</tbody></table>';
         }
       } catch (err) {
