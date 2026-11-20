@@ -1,6 +1,6 @@
 # Torvant Drill
 
-Small TypeScript web server (Node 20+) serving a simple page titled "Torvant Drill" with a button to call the Gemini API (`gemini-2.5-flash`).
+Small TypeScript web server (Node 20+) serving a simple page titled "Torvant Drill" with a button to call the Gemini API (`gemini-3.8-flash`).
 
 ## Local Development
 

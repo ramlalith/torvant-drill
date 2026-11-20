@@ -6,7 +6,7 @@ import path from "path";
 
 const app = express();
 const port = parseInt(process.env.PORT || "8080", 10);
-const geminiModel = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
