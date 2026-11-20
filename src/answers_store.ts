@@ -4,7 +4,7 @@
 
 import { BigQuery } from "@google-cloud/bigquery";
 import { AnswerCounts, AnswerRow, toAnswerCounts } from "./answers";
-import { teamResultsSince } from "./results_since";
+import { sinceSql, teamResultsSince } from "./results_since";
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "gen-lang-client-0405873744";
 const datasetId = "torvant_drill";
@@ -48,7 +48,7 @@ let cached: { at: number; value: AnswerCounts | null } = { at: 0, value: null };
 export async function getAnswerCounts(): Promise<AnswerCounts | null> {
   if (cached.value && Date.now() - cached.at < 30_000) return cached.value;
   const since = teamResultsSince();
-  const where = since ? "AND ts >= @since" : "";
+  const where = since ? `AND ts >= ${sinceSql(since)}` : "";
   const table = `\`${projectId}.${datasetId}.${ANSWERS_TABLE}\``;
   const query = `
     SELECT 'approvals_per_day' AS q, approvals_per_day AS a, COUNT(1) AS n FROM ${table}
@@ -62,7 +62,6 @@ export async function getAnswerCounts(): Promise<AnswerCounts | null> {
     const [rows] = await bq().query({
       query,
       location: "asia-south1",
-      ...(since ? { params: { since: since.toISOString() }, types: { since: "TIMESTAMP" } } : {})
     });
     const total = Number((rows as any[]).find((r) => r.q === "total")?.n || 0);
     cached = { at: Date.now(), value: toAnswerCounts(rows as any[], total) };

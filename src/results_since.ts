@@ -14,3 +14,14 @@ export function teamResultsSince(value = process.env.TEAM_RESULTS_SINCE): Date |
   }
   return d;
 }
+
+/**
+ * SQL for the start time, as a BigQuery TIMESTAMP literal in the canonical
+ * format ("YYYY-MM-DD HH:MM:SS.mmm+00:00"). Built only from a parsed Date, so
+ * it holds digits and fixed symbols only, never raw text from the setting.
+ */
+export function sinceSql(since: Date): string {
+  const s = since.toISOString().replace("T", " ").replace("Z", "+00:00");
+  if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\+00:00$/.test(s)) throw new Error("bad start time");
+  return `TIMESTAMP('${s}')`;
+}

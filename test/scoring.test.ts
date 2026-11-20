@@ -122,3 +122,11 @@ describe("Fix 5: TEAM_RESULTS_SINCE", () => {
     assert.strictEqual(teamResultsSince("not a time"), null);
   });
 });
+
+describe("Fix: start time as a BigQuery literal", () => {
+  it("builds a canonical TIMESTAMP literal from a parsed time only", async () => {
+    const { sinceSql, teamResultsSince } = await import("../src/results_since");
+    assert.strictEqual(sinceSql(teamResultsSince("2026-11-20T13:17:56Z")!), "TIMESTAMP('2026-11-20 13:17:56.000+00:00')");
+    assert.strictEqual(teamResultsSince("2026-11-20T13:17:56Z' OR 1=1 --"), null, "anything that is not a time is ignored");
+  });
+});
