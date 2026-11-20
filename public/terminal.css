@@ -1,0 +1,145 @@
+/* Terminal skin for the drill page only (index.html). Generic look, own colours.
+   Layout and colour only: no behaviour lives here. No animation. */
+
+body.term {
+  --t-page: #23262d;
+  --t-window: #121419;
+  --t-title: #2b2f37;
+  --t-panel: #1b1e25;
+  --t-line: #2f3440;
+  --t-edge: #4b5260;
+  --t-text: #e7e9ee;
+  --t-soft: #d6d9df;
+  --t-dim: #9ba1ab;
+  --t-accent: #7fd4a8;
+  --t-link: #9cc3ff;
+  --t-mono: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
+  background: var(--t-page);
+  padding: 10px;
+  font-family: var(--t-mono);
+}
+body.term * { font-family: var(--t-mono); transition: none !important; animation: none !important; }
+
+/* One dark terminal window with a title bar */
+.term-window {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 6px;
+  border: 2px solid var(--t-edge);
+  border-radius: 10px;
+  background: var(--t-window);
+}
+.term-titlebar {
+  background: var(--t-title);
+  color: var(--t-soft);
+  font-size: 16px;
+  padding: 8px 14px;
+  border-bottom: 2px solid var(--t-edge);
+  border-radius: 8px 8px 0 0;
+  white-space: pre-wrap;
+}
+/* On a narrow screen the title breaks between name and path, never inside one. */
+.term-titlebar .t-part { white-space: nowrap; color: inherit; }
+body.term .drill-container {
+  max-width: none;
+  margin: 0;
+  background: var(--t-window);
+  border: 0;
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+  padding: 14px 14px 0;
+}
+
+/* Text */
+body.term h1, body.term h2, body.term h3, body.term h4 { color: var(--t-text); text-align: left; }
+body.term h1 { font-size: 26px; }
+body.term h2 { font-size: 22px; }
+body.term p, body.term li, body.term div, body.term dd, body.term span { color: var(--t-soft); }
+body.term .lead-text { color: var(--t-text); text-align: left; font-weight: 600; font-size: 19px; }
+body.term a { color: var(--t-link); }
+body.term .info-note {
+  background: var(--t-panel);
+  border-left: 4px solid var(--t-edge);
+  color: var(--t-soft);
+  border-radius: 4px;
+}
+
+/* Status line and earlier agent output */
+body.term .status-bar { border-bottom: 1px solid var(--t-line); margin-bottom: 10px; padding-bottom: 8px; }
+body.term .badge-progress { color: var(--t-dim); font-size: 18px; font-weight: 400; }
+body.term .badge-timer { background: var(--t-panel); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 4px; font-size: 18px; }
+body.term .badge-timer.urgent { background: #3a1414; color: #ffb4b4; border-color: #b91c1c; }
+.term-history { margin-bottom: 10px; }
+.term-history div { color: var(--t-dim); font-size: 16px; line-height: 1.5; white-space: pre-wrap; }
+
+/* The request: a plain terminal prompt */
+body.term .request-card { gap: 10px; margin-bottom: 12px; }
+body.term .label-title {
+  color: var(--t-dim);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+  font-size: 16px;
+}
+body.term .label-title::after { content: ":"; }
+body.term .task-box {
+  background: transparent;
+  border: 0;
+  padding: 2px 0 0;
+  color: var(--t-text);
+  font-weight: 600;
+  font-size: 19px;
+}
+body.term .command-box {
+  background: transparent;
+  border: 0;
+  border-left: 3px solid var(--t-accent);
+  border-radius: 0;
+  padding: 4px 0 4px 10px;
+  color: var(--t-text);
+  font-size: 18px;
+}
+body.term .command-box code { color: var(--t-text); }
+body.term .command-box code::before { content: "$ "; color: var(--t-accent); }
+body.term .command-small { font-size: 16px; }
+
+/* Torvant card: the same window, the request as a structured card */
+body.term .torvant-panel { background: var(--t-panel); border: 2px solid var(--t-edge); border-radius: 6px; }
+body.term .torvant-level { color: var(--t-text); }
+body.term .level-low { border-left: 6px solid var(--t-dim); }
+body.term .level-medium { border-left: 6px solid #d08a2c; color: #f2c98a; }
+body.term .torvant-panel.panel-high { border: 5px solid #d43c3c; }
+body.term .torvant-level.level-high { background: #b91c1c; color: #ffffff; border-left: 0; border-radius: 4px; }
+body.term .torvant-facts dt { color: var(--t-dim); }
+body.term .torvant-facts dd { color: var(--t-text); }
+body.term .torvant-note, body.term .torvant-text { color: var(--t-soft); }
+
+/* Approve and Deny: pinned at the bottom of the screen */
+body.term .play-actions { background: var(--t-window); border-top: 1px solid var(--t-line); padding-left: 0; padding-right: 0; }
+body.term .btn-large { border-radius: 6px; font-size: 20px; }
+body.term .btn-deny { background: #b91c1c; color: #ffffff; border-color: #ef6b6b; }
+body.term .btn-approve { background: #15803d; color: #ffffff; border-color: #5fd08e; }
+body.term .btn-primary { background: #1f4fbf; color: #ffffff; border-color: #6d8fd6; }
+body.term .btn-large span, body.term .btn-large { color: #ffffff; }
+body.term .confirm-text { color: var(--t-text); }
+
+/* Score and summary screens */
+body.term .score-highlight, body.term .round-card, body.term .risky-item, body.term .questions {
+  background: var(--t-panel);
+  border: 1px solid var(--t-line);
+  border-radius: 6px;
+}
+body.term .score-metric { color: var(--t-text); font-size: 20px; }
+body.term .rating-poor { background: #2a1515; color: #ffb4b4; border-color: #b91c1c; }
+body.term .rating-excellent { background: #12261a; color: #9fe3b7; border-color: #15803d; }
+body.term .rating-good { background: #142033; color: #a9c8ff; border-color: #3b6fd8; }
+body.term .rating-attention { background: #2b2210; color: #f2c98a; border-color: #b7791f; }
+body.term .risky-item.caught { border-left: 6px solid #15803d; }
+body.term .risky-item.missed { border-left: 6px solid #d43c3c; }
+body.term .explanation-text { background: #14171d; color: var(--t-soft); border-left: 3px solid var(--t-edge); }
+body.term .btn-explain { background: var(--t-window); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 6px; }
+body.term .explain-card { background: #14171d; border: 1px solid var(--t-edge); }
+body.term .q-text { color: var(--t-text); }
+body.term .q-opt { background: var(--t-window); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 6px; }
+body.term .q-opt[aria-pressed="true"] { background: #1f4fbf; color: #ffffff; border-color: #6d8fd6; }
+body.term .site-footer { color: var(--t-soft); }

@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>Torvant Drill</title>
   <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/terminal.css">
 </head>
-<body>
+<body class="term">
+  <div class="term-window">
+  <div class="term-titlebar"><span class="t-part">store-dev-agent</span>  <span class="t-part">~/kaveri-store-app</span></div>
   <main class="drill-container" id="app">
     <!-- Rendered dynamically by app.js -->
     <noscript>
@@ -26,6 +29,7 @@
       </div>
     </noscript>
   </main>
+  </div>
   <nav class="site-footer" aria-label="Pages"><a href="/how">How it works</a> · <a href="/team">Team results</a></nav>
 
   <script src="/app.js"></script>

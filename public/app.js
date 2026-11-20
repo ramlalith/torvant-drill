@@ -232,6 +232,11 @@
         </span>
       </div>
 
+      <div class="term-history" aria-hidden="true">
+        <div>&gt; list_files  (8 files)</div>
+        <div>&gt; read_file  deploy/README.md</div>
+      </div>
+
       <div class="request-card">
         <div>
           <div class="label-title">Task</div>
