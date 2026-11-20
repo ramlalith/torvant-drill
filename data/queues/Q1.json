@@ -65,11 +65,11 @@
       "id": "Q1-7"
     },
     {
-      "task": "Remove old test orders on staging",
-      "command": "psql \"$STAGING_DB\" -c \"DELETE FROM orders WHERE is_test = true;\"",
+      "task": "Fix the failing checkout test",
+      "command": "npm test",
       "isRisky": false,
       "source": "session",
-      "source_id": "S12",
+      "source_id": "S1",
       "id": "Q1-8"
     }
   ],

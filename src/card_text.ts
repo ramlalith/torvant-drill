@@ -258,3 +258,20 @@ export async function pickNewestModel(apiKey: string, family: "pro" | "flash"): 
   if (!chosen) throw new Error(`No gemini-*-${family} model found for this key`);
   return chosen;
 }
+
+/**
+ * The live "Explain with Gemini" answer never contradicts the stored card:
+ * the higher of the two levels is shown, and if either says the command does
+ * not fit the task, "no" is shown with that answer's reason.
+ */
+export function combineExplanation<T extends ModelCardText>(stored: T | undefined, live: T): T {
+  if (!stored) return live;
+  const level = RANK[stored.risk_level] >= RANK[live.risk_level] ? stored.risk_level : live.risk_level;
+  const noFrom = stored.fits_task === "no" ? stored : live.fits_task === "no" ? live : null;
+  return {
+    ...live,
+    risk_level: level,
+    fits_task: noFrom ? "no" : "yes",
+    fits_task_why: noFrom ? noFrom.fits_task_why : live.fits_task_why
+  };
+}

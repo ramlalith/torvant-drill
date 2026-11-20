@@ -6,10 +6,11 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/index.js",
-    "test": "npm run build && node --test dist/test/cards.test.js dist/test/drill_flow.test.js dist/test/risk_rules.test.js dist/test/safety.test.js dist/test/scoring.test.js dist/test/card_text.test.js dist/test/drill_queue.test.js dist/test/agents.test.js",
+    "test": "npm run build && node --test dist/test/cards.test.js dist/test/drill_flow.test.js dist/test/risk_rules.test.js dist/test/safety.test.js dist/test/scoring.test.js dist/test/card_text.test.js dist/test/drill_queue.test.js dist/test/agents.test.js dist/test/request_text.test.js",
     "dev": "tsc -w",
     "gen:cards": "npm run build && node dist/src/gen_card_text.js",
-    "agents": "npm run build && node dist/src/agents/run_agents.js"
+    "agents": "npm run build && node dist/src/agents/run_agents.js",
+    "cards:unify": "npm run build && node dist/src/agents/unify_text.js"
   },
   "dependencies": {
     "@google-cloud/bigquery": "^9.6.1",

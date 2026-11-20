@@ -1,4 +1,5 @@
 import { BigQuery } from "@google-cloud/bigquery";
+import { teamResultsSince } from "./results_since";
 
 export interface DecisionRow {
   play_id: string;
@@ -122,9 +123,11 @@ export async function getTeamResults(): Promise<TeamResults> {
     return cachedResults;
   }
 
+  const since = teamResultsSince();
   const query = `
     WITH base AS (
       SELECT * FROM \`${projectId}.${datasetId}.${tableId}\`
+      ${since ? "WHERE ts >= @since" : ""}
     ),
     summary AS (
       SELECT
@@ -164,7 +167,11 @@ export async function getTeamResults(): Promise<TeamResults> {
 
   try {
     const bq = getBigQueryClient();
-    const [rows] = await bq.query({ query, location: "asia-south1" });
+    const [rows] = await bq.query({
+      query,
+      location: "asia-south1",
+      ...(since ? { params: { since: since.toISOString() }, types: { since: "TIMESTAMP" } } : {})
+    });
 
     const row = rows[0] || {};
     const totalPlayers = parseInt(row.summary?.total_players || "0", 10);

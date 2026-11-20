@@ -79,3 +79,19 @@ describe("Model picker", () => {
     assert.strictEqual(chooseNewest(["models/gemini-3.1-pro-preview-06-05"], "pro"), "gemini-3.1-pro-preview-06-05");
   });
 });
+
+describe("Fix 4: live explain never contradicts the stored card", () => {
+  it("shows the higher level and 'no' if either answer says no", async () => {
+    const { combineExplanation } = await import("../src/card_text");
+    const stored = { ...good, risk_level: "high", fits_task: "no", fits_task_why: "Stored reason." } as any;
+    const live = { ...good, risk_level: "medium", fits_task: "yes", fits_task_why: "Live reason." } as any;
+    const a = combineExplanation(stored, live);
+    assert.strictEqual(a.risk_level, "high");
+    assert.strictEqual(a.fits_task, "no");
+    assert.strictEqual(a.fits_task_why, "Stored reason.");
+    const b = combineExplanation({ ...live, risk_level: "low" }, { ...stored, fits_task_why: "Live no." });
+    assert.strictEqual(b.risk_level, "high");
+    assert.strictEqual(b.fits_task_why, "Live no.");
+    assert.strictEqual(combineExplanation(undefined, live).risk_level, "medium");
+  });
+});

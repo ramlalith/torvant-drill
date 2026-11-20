@@ -5,6 +5,7 @@ import fs from "fs";
 import path from "path";
 import { StoredCardText } from "./card_text";
 import { loadCards, loadCardText, loadRounds } from "./cards_store";
+import { textForRequest } from "./request_text";
 import { Card } from "./types";
 
 const QUEUE_DIR = path.resolve(process.cwd(), "data/queues");
@@ -27,6 +28,15 @@ export interface RoundSource {
   queue?: StoredQueue;
 }
 
+/**
+ * Card text for a queue card. Every queue reads the one shared text for that
+ * task + command (data/request_text.json), so the same request always looks the
+ * same. The queue's own copy is only a fallback until that file exists.
+ */
+export function queueCardText(q: StoredQueue, card: { id: string; task: string; command: string }): StoredCardText | undefined {
+  return textForRequest(card.task, card.command) || (q.card_text ? q.card_text[card.id] : undefined);
+}
+
 /** A queue is used only if it is complete: 8 cards, 2 risky, not first, card text for all. */
 export function isUsableQueue(q: StoredQueue): boolean {
   return (
@@ -34,7 +44,7 @@ export function isUsableQueue(q: StoredQueue): boolean {
     q.cards.length === 8 &&
     q.cards.filter((c) => c.isRisky).length === 2 &&
     !q.cards[0].isRisky &&
-    q.cards.every((c) => q.card_text && q.card_text[c.id])
+    q.cards.every((c) => queueCardText(q, c))
   );
 }
 
@@ -72,7 +82,13 @@ export function handWrittenRound(key: "roundA" | "roundB"): RoundSource {
 }
 
 function queueRound(q: StoredQueue): RoundSource {
-  return { key: q.queue_id, name: `Queue ${q.queue_id}`, cards: q.cards, text: q.card_text, queue: q };
+  return {
+    key: q.queue_id,
+    name: `Queue ${q.queue_id}`,
+    cards: q.cards,
+    text: Object.fromEntries(q.cards.map((c) => [c.id, queueCardText(q, c)])),
+    queue: q
+  };
 }
 
 export function roundByKey(key: string): RoundSource | null {
@@ -102,7 +118,7 @@ export function findCard(id: string): { card: Card & { risk_type?: string }; tex
   if (base) return { card: base, text: loadCardText()?.cards[id] };
   for (const q of loadQueues()) {
     const c = q.cards.find((x) => x.id === id);
-    if (c) return { card: c, text: q.card_text[id] };
+    if (c) return { card: c, text: queueCardText(q, c) };
   }
   return null;
 }

@@ -25,6 +25,11 @@
   let roundAScore = null;
   let roundBScore = null;
 
+  // Title of a round by the card design used in it.
+  function variantTitle(variant) {
+    return variant === "torvant" ? "Torvant card" : "Plain card (how agents ask today)";
+  }
+
   // DOM Container
   const container = document.getElementById("app");
 
@@ -85,7 +90,7 @@
       
       <div class="info-note">
         <strong>Drill Details:</strong><br>
-        8 requests, about 60 seconds.<br>
+        8 requests, about 75 seconds.<br>
         Some requests are planted tests.<br>
         Nothing here is ever run.<br>
         No names are stored.<br>
@@ -188,7 +193,7 @@
     const t = card.text;
     if (!t) {
       return `
-        <div class="torvant-panel" aria-label="Torvant card">
+        <div class="torvant-panel panel-${level}" aria-label="Torvant card">
           <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
           <div class="torvant-text">Card text not generated yet</div>
         </div>`;
@@ -197,7 +202,7 @@
     const undo = { yes: "✓ Yes", no: "✕ No", partly: "◐ Partly" }[t.can_be_undone] || escapeHtml(t.can_be_undone);
     const raised = t.raised_by_model ? `<div class="torvant-note">Level raised by Gemini</div>` : "";
     return `
-      <div class="torvant-panel" aria-label="Torvant card">
+      <div class="torvant-panel panel-${level}" aria-label="Torvant card">
         <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
         ${raised}
         <dl class="torvant-facts">
@@ -318,6 +323,7 @@
       });
 
       const score = await res.json();
+      score.cardVariant = currentCardVariant;
 
       if (currentRoundKey === "roundA") roundAScore = score;
       else roundBScore = score;
@@ -376,7 +382,7 @@
     const nextButtonLabel = isFirstPlay ? "Next: Start Round 2 ▶" : "View Final Comparison ▶";
 
     container.innerHTML = `
-      <h2>${escapeHtml(score.roundName)} Score</h2>
+      <h2>${escapeHtml(variantTitle(score.cardVariant))}</h2>
 
       <div class="score-highlight">
         <div class="score-metric">🎯 You caught ${score.riskyCaught} of ${score.totalRisky} risky requests</div>
@@ -423,12 +429,13 @@
     const scoreB = roundBScore;
 
     container.innerHTML = `
-      <h2>Drill Summary: Round A &amp; Round B</h2>
+      <h2>Drill summary</h2>
+      <p class="lead-text">One round used the plain card. The other used the Torvant card. Order is random for each player.</p>
       <p class="lead-text">Session ID: ${playerId}</p>
 
       <div class="comparison-grid">
         <div class="round-card">
-          <h3>${escapeHtml(scoreA.roundName)}</h3>
+          <h3>${escapeHtml(variantTitle(scoreA.cardVariant))}</h3>
           <p><strong>Caught:</strong> ${scoreA.riskyCaught} / ${scoreA.totalRisky} risky</p>
           <p><strong>Wrong blocks:</strong> ${scoreA.wronglyBlocked} / ${scoreA.totalNormal} normal</p>
           <p><strong>Speed:</strong> ${scoreA.avgSecondsPerDecision}s / decision</p>
@@ -436,7 +443,7 @@
         </div>
 
         <div class="round-card">
-          <h3>${escapeHtml(scoreB.roundName)}</h3>
+          <h3>${escapeHtml(variantTitle(scoreB.cardVariant))}</h3>
           <p><strong>Caught:</strong> ${scoreB.riskyCaught} / ${scoreB.totalRisky} risky</p>
           <p><strong>Wrong blocks:</strong> ${scoreB.wronglyBlocked} / ${scoreB.totalNormal} normal</p>
           <p><strong>Speed:</strong> ${scoreB.avgSecondsPerDecision}s / decision</p>

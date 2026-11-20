@@ -432,3 +432,21 @@ p, li, div {
 }
 .play-actions .btn-large { min-height: 60px; margin: 0; }
 .play-actions .confirm-box { grid-column: 1 / -1; }
+
+/* High risk Torvant card: thick border and a full width HIGH RISK bar with the icon,
+   so it differs from Low by shape and text, not by colour alone. */
+.torvant-panel.panel-high { border: 5px solid #b91c1c; }
+.torvant-level.level-high {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border-left: none;
+  background: #b91c1c;
+  color: #ffffff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+}

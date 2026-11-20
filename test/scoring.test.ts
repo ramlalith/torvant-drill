@@ -112,3 +112,13 @@ describe("Scoring Pure Function", () => {
     assert.deepStrictEqual(decisions, originalDecisions, "Decisions array must not be mutated");
   });
 });
+
+describe("Fix 5: TEAM_RESULTS_SINCE", () => {
+  it("reads a valid time and ignores an empty or invalid one", async () => {
+    const { teamResultsSince } = await import("../src/results_since");
+    assert.strictEqual(teamResultsSince("2026-11-20T13:15:00Z")?.toISOString(), "2026-11-20T13:15:00.000Z");
+    assert.strictEqual(teamResultsSince(""), null);
+    assert.strictEqual(teamResultsSince(undefined), null);
+    assert.strictEqual(teamResultsSince("not a time"), null);
+  });
+});

@@ -4,7 +4,7 @@ dotenv.config();
 import express, { Request, Response } from "express";
 import path from "path";
 import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
-import { generateCardText } from "./card_text";
+import { combineExplanation, generateCardText } from "./card_text";
 import { loadCardText, toPublicCard } from "./cards_store";
 import { buildHow } from "./how";
 import { findCard, pickRounds, roundByKey } from "./queues";
@@ -118,8 +118,8 @@ app.post("/api/explain", async (req: Request, res: Response) => {
 
   try {
     const rules = risk_flags(card.task, card.command);
-    const text = await generateCardText(apiKey, liveModel, card.task, card.command, rules, LIVE_TIMEOUT_MS);
-    res.json({ source: "live", model: liveModel, text });
+    const live = await generateCardText(apiKey, liveModel, card.task, card.command, rules, LIVE_TIMEOUT_MS);
+    res.json({ source: "live", model: liveModel, text: combineExplanation(stored, live) });
   } catch (err) {
     console.warn("Live explain failed:", (err as Error).message);
     storedAnswer("live call failed or timed out");
