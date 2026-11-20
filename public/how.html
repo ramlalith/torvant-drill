@@ -26,6 +26,22 @@
   <main class="drill-container">
     <h1>How it works</h1>
     <p class="lead-text">Gemini builds the drill ahead of time. Code runs the play. A person decides. Nothing is ever run.</p>
+    <noscript>
+      <div class="info-note">
+        <h2>What Torvant Drill is</h2>
+        <p>A drill that tests the person who approves an AI coding agent's actions. You play the developer on duty at Kaveri Retail, a made up store. The agent asks before each action. A few requests are planted risky ones. Nothing is ever run and no names are stored.</p>
+        <h2>How to play</h2>
+        <p>Turn on JavaScript and open this page on a phone. Play two rounds of 8 requests, about 75 seconds each. Tap Approve or Deny on each request. One round shows requests the way agents ask today. The other shows the Torvant card, which says what the command does and if it fits the task. You then see your score, and the team results compare the two cards.</p>
+        <h2>Google tools used</h2>
+        <ul>
+          <li>Gemini 3.8 Flash runs the coding agent under test and the live "Explain with Gemini" button.</li>
+          <li>Gemini 4 Argon builds the drill queues and writes the card text. Rules set the lowest level. Gemini can raise it, never lower it.</li>
+          <li>Agent Development Kit (ADK): both agents, and Tool Confirmation, the approval gate the drill tests.</li>
+          <li>Agent Skills in ADK: how to build a drill, and how to write a card.</li>
+          <li>BigQuery stores every decision. Cloud Run hosts the service. Secret Manager holds the API key.</li>
+        </ul>
+      </div>
+    </noscript>
 
     <section class="how-section" aria-label="Diagram">
       <h2>The two paths</h2>
