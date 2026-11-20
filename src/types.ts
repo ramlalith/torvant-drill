@@ -31,6 +31,11 @@ export interface RoundScore {
     caught: boolean;
     denialReason: string;
   }>;
+  wronglyBlockedCards: Array<{
+    cardId: string;
+    task: string;
+    command: string;
+  }>;
 }
 
 export interface DrillRoundsData {

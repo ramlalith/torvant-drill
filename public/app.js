@@ -13,7 +13,6 @@
   let playIndex = 0;
 
   let drillData = null;
-  let cardTextMap = {}; // keyed by card_id, populated from data/card_text.json if available
   let currentRoundKey = roundOrder[0];
   let currentCardVariant = variantOrder[0];
   let currentCardIndex = 0;
@@ -59,8 +58,6 @@
       queue_id: roundLetter(currentRoundKey),   // "A" or "B"
       position: positionIndex + 1,              // 1-based position within the round
       card_id: card.id,
-      risky: Boolean(card.isRisky),
-      risk_type: card.risk_type || null,
       decision: decision,
       seconds: Number(seconds.toFixed(1)),
       reached: Boolean(reached)
@@ -114,16 +111,6 @@
         throw new Error("Failed to load drill data from server.");
       }
       drillData = await res.json();
-
-      // Try to load card_text.json (gracefully ignore 404 or parse errors)
-      try {
-        const ctRes = await fetch("/data/card_text.json");
-        if (ctRes.ok) {
-          cardTextMap = await ctRes.json();
-        }
-      } catch (_) {
-        cardTextMap = {};
-      }
 
       playIndex = 0;
       currentRoundKey = roundOrder[0];
@@ -189,26 +176,32 @@
     await finishRound();
   }
 
-  // Build the Torvant card section (risk badge + card text or placeholder)
+  // Build the Torvant card: risk level, what it does, fits the task, reach, touches, undo.
+  // Code sets the level. Gemini wrote the words ahead of time (stored, no live call here).
   function buildTorvantSection(card) {
-    const analysis = card.riskAnalysis || { flags: [], level: "low" };
-    const levelLabel = riskLevelLabel(analysis.level);
-    const cardText = cardTextMap && cardTextMap[card.id]
-      ? escapeHtml(cardTextMap[card.id])
-      : "Card text not generated yet";
-    const flagsText = analysis.flags.length > 0
-      ? analysis.flags.map(f => escapeHtml(f)).join(", ")
-      : "none";
-
+    const level = card.level || "low";
+    const t = card.text;
+    if (!t) {
+      return `
+        <div class="torvant-panel" aria-label="Torvant card">
+          <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
+          <div class="torvant-text">Card text not generated yet</div>
+        </div>`;
+    }
+    const fits = t.fits_task === "yes" ? "✓ Yes" : "✕ No";
+    const undo = { yes: "✓ Yes", no: "✕ No", partly: "◐ Partly" }[t.can_be_undone] || escapeHtml(t.can_be_undone);
+    const raised = t.raised_by_model ? `<div class="torvant-note">Level raised by Gemini</div>` : "";
     return `
-      <div class="torvant-panel" aria-label="Torvant risk analysis panel">
-        <div class="torvant-level" aria-label="Risk level: ${analysis.level}">
-          ${levelLabel}
-        </div>
-        <div class="torvant-flags" aria-label="Risk flags: ${flagsText}">
-          <strong>Flags:</strong> ${flagsText}
-        </div>
-        <div class="torvant-text">${cardText}</div>
+      <div class="torvant-panel" aria-label="Torvant card">
+        <div class="torvant-level level-${level}">${riskLevelLabel(level)}</div>
+        ${raised}
+        <dl class="torvant-facts">
+          <dt>What it does</dt><dd>${escapeHtml(t.what_it_does)}</dd>
+          <dt>Fits the task?</dt><dd><strong>${fits}</strong>. ${escapeHtml(t.fits_task_why)}</dd>
+          <dt>Reach</dt><dd>${escapeHtml(t.reach)}</dd>
+          <dt>Touches</dt><dd>${(t.touches || []).map(escapeHtml).join(", ")}</dd>
+          <dt>Can be undone</dt><dd>${undo}</dd>
+        </dl>
       </div>
     `;
   }
@@ -242,12 +235,12 @@
           <div class="task-box">${escapeHtml(card.task)}</div>
         </div>
 
+        ${torvantSection}
+
         <div>
           <div class="label-title">The agent wants to run</div>
-          <pre class="command-box"><code>${escapeHtml(card.command)}</code></pre>
+          <pre class="command-box ${torvantSection ? "command-small" : ""}"><code>${escapeHtml(card.command)}</code></pre>
         </div>
-
-        ${torvantSection}
       </div>
 
       <div class="thumb-actions">
@@ -261,13 +254,38 @@
     `;
 
     document.getElementById("denyBtn").addEventListener("click", () => handleDecision("denied"));
-    document.getElementById("approveBtn").addEventListener("click", () => handleDecision("approved"));
+    document.getElementById("approveBtn").addEventListener("click", () => {
+      if (currentCardVariant === "torvant" && card.level === "high") {
+        renderHighConfirm();
+      } else {
+        handleDecision("approved");
+      }
+    });
 
     // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM
     cardStartTime = performance.now();
     if (currentCardIndex === 0 && !roundTimer) {
       startRoundTimer();
     }
+  }
+
+  // Second confirm before approving a High risk request (Torvant card only).
+  // The per-card timer keeps running, so the pause counts in decision time.
+  function renderHighConfirm() {
+    const actions = container.querySelector(".thumb-actions");
+    if (!actions) return;
+    actions.innerHTML = `
+      <div class="confirm-box" role="alertdialog" aria-label="High risk confirmation">
+        <p class="confirm-text">⛔ This is high risk. Approve anyway?</p>
+        <button id="goBackBtn" class="btn-large btn-deny" aria-label="Go back to the request">◀ Go back</button>
+        <button id="confirmApproveBtn" class="btn-large btn-approve" aria-label="Yes, approve anyway">✓ Yes, approve</button>
+      </div>`;
+    document.getElementById("goBackBtn").addEventListener("click", () => {
+      const keep = cardStartTime;
+      renderPlayScreen();
+      cardStartTime = keep;
+    });
+    document.getElementById("confirmApproveBtn").addEventListener("click", () => handleDecision("approved"));
   }
 
   function handleDecision(decision) {
@@ -331,6 +349,19 @@
             <strong>Why a careful person denies it:</strong><br>
             ${escapeHtml(item.denialReason)}
           </div>
+          ${item.decision === "approved" ? explainButton(item.cardId) : ""}
+        </div>
+      `;
+    });
+
+    let blockedHtml = "";
+    (score.wronglyBlockedCards || []).forEach((item) => {
+      blockedHtml += `
+        <div class="risky-item missed">
+          <div><strong>Task:</strong> ${escapeHtml(item.task)}</div>
+          <div><pre class="command-box"><code>${escapeHtml(item.command)}</code></pre></div>
+          <div class="choice-badge">Your decision: ${formatChoice("denied")} &nbsp; <strong>✕ [NORMAL REQUEST]</strong></div>
+          ${explainButton(item.cardId)}
         </div>
       `;
     });
@@ -356,6 +387,7 @@
       <div class="risky-list">
         ${riskyCardsHtml}
       </div>
+      ${blockedHtml ? `<h3>Normal requests you blocked:</h3><div class="risky-list">${blockedHtml}</div>` : ""}
 
       <div class="thumb-actions">
         <button id="nextRoundBtn" class="btn-large btn-primary" aria-label="${nextButtonLabel}">
@@ -363,6 +395,8 @@
         </button>
       </div>
     `;
+
+    wireExplainButtons();
 
     document.getElementById("nextRoundBtn").addEventListener("click", () => {
       if (isFirstPlay) {
@@ -422,6 +456,60 @@
     document.getElementById("restartBtn").addEventListener("click", () => {
       location.reload();
     });
+  }
+
+  // "Explain with Gemini (live)": calls Gemini now, with a timeout on the server.
+  // If the live call fails, times out or hits the limit, the stored answer is shown.
+  function explainButton(cardId) {
+    return `
+      <div class="explain-block">
+        <button class="btn-explain" data-card="${escapeHtml(cardId)}" aria-label="Explain this request with Gemini, live">
+          ✨ Explain with Gemini (live)
+        </button>
+        <div class="explain-out" aria-live="polite"></div>
+      </div>`;
+  }
+
+  function wireExplainButtons() {
+    container.querySelectorAll(".btn-explain").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const out = btn.nextElementSibling;
+        btn.disabled = true;
+        out.textContent = "Asking Gemini...";
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 20000);
+          const res = await fetch("/api/explain", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ cardId: btn.dataset.card }),
+            signal: ctrl.signal
+          });
+          clearTimeout(timer);
+          const data = await res.json();
+          out.innerHTML = renderExplanation(data);
+        } catch (_) {
+          out.textContent = "Gemini did not answer in time. Try again later.";
+        }
+        btn.disabled = false;
+      });
+    });
+  }
+
+  function renderExplanation(data) {
+    const t = data && data.text;
+    if (!t) return "No explanation available yet.";
+    const label = data.source === "live"
+      ? `Live from ${escapeHtml(data.model)}`
+      : `Stored answer${data.model ? " from " + escapeHtml(data.model) : ""}`;
+    return `
+      <div class="explain-card">
+        <div class="explain-source">${label}</div>
+        <div><strong>${riskLevelLabel(t.risk_level)}</strong></div>
+        <div><strong>What it does:</strong> ${escapeHtml(t.what_it_does)}</div>
+        <div><strong>Fits the task?</strong> ${t.fits_task === "yes" ? "Yes" : "No"}. ${escapeHtml(t.fits_task_why)}</div>
+        <div><strong>Reach:</strong> ${escapeHtml(t.reach)}</div>
+      </div>`;
   }
 
   function escapeHtml(text) {

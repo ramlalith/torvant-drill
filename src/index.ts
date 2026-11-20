@@ -2,195 +2,177 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express, { Request, Response } from "express";
-import fs from "fs";
 import path from "path";
 import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
+import { generateCardText } from "./card_text";
+import { loadCards, loadCardText, loadRounds, toPublicCard } from "./cards_store";
 import { risk_flags } from "./risk_rules";
 import { calculateRoundScore } from "./scoring";
-import { Card, DecisionRecord, DrillRoundsData } from "./types";
+import { Card, DecisionRecord } from "./types";
 
 const app = express();
 const port = parseInt(process.env.PORT || "8080", 10);
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+// Live explain uses the fast model so it fits inside its timeout.
+const liveModel = process.env.GEMINI_LIVE_MODEL || geminiModel;
+const LIVE_TIMEOUT_MS = 15000;
+const LIVE_LIMIT_PER_HOUR = 30;
 
-// Serve static files from public/ and data/ directories
-app.use(express.json());
+app.use(express.json({ limit: "64kb" }));
+// Only public/ is served as files. data/ is NOT served, so answers stay on the server.
 app.use(express.static(path.resolve(process.cwd(), "public")));
-app.use("/data", express.static(path.resolve(process.cwd(), "data")));
 
-// Load drill cards and rounds from data directory
-function loadDrillData(): DrillRoundsData {
-  const cardsPath = path.resolve(process.cwd(), "data/cards.json");
-  const roundsPath = path.resolve(process.cwd(), "data/rounds.json");
+type RoundKey = "roundA" | "roundB";
 
-  const cards: Card[] = JSON.parse(fs.readFileSync(cardsPath, "utf-8"));
-  const rounds = JSON.parse(fs.readFileSync(roundsPath, "utf-8"));
+function cardMap(): Map<string, Card> {
+  return new Map(loadCards().map((c) => [c.id, c]));
+}
 
-  const cardMap = new Map<string, Card>();
-  for (const c of cards) {
-    cardMap.set(c.id, c);
-  }
-
-  const roundACards: Card[] = (rounds.roundA.cardIds as string[])
-    .map((id) => cardMap.get(id))
-    .filter((c): c is Card => Boolean(c));
-
-  const roundBCards: Card[] = (rounds.roundB.cardIds as string[])
-    .map((id) => cardMap.get(id))
-    .filter((c): c is Card => Boolean(c));
-
+function roundCards(key: RoundKey): { name: string; cards: Card[] } {
+  const rounds = loadRounds();
+  const map = cardMap();
+  const r = rounds[key];
   return {
-    roundA: {
-      name: rounds.roundA.name || "Round A",
-      cards: roundACards
-    },
-    roundB: {
-      name: rounds.roundB.name || "Round B",
-      cards: roundBCards
-    }
+    name: r.name || (key === "roundA" ? "Round A" : "Round B"),
+    cards: r.cardIds.map((id) => map.get(id)).filter((c): c is Card => Boolean(c))
   };
 }
 
-// Health check endpoint
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
-// API to retrieve drill rounds (cards enriched with riskAnalysis for Torvant card screen)
+// Cards as the phone sees them before a decision: task, command, level, card text.
+// No risky flag, risk type or reason is sent until the round is scored.
 app.get("/api/drill/rounds", (_req: Request, res: Response) => {
   try {
-    const drillData = loadDrillData();
-
-    // Enrich each card with riskAnalysis (pure function, no AI)
-    const enriched: DrillRoundsData = {
-      roundA: {
-        name: drillData.roundA.name,
-        cards: drillData.roundA.cards.map((c) => ({
-          ...c,
-          riskAnalysis: risk_flags(c.task, c.command)
-        }))
-      },
-      roundB: {
-        name: drillData.roundB.name,
-        cards: drillData.roundB.cards.map((c) => ({
-          ...c,
-          riskAnalysis: risk_flags(c.task, c.command)
-        }))
-      }
+    const text = loadCardText();
+    const view = (key: RoundKey) => {
+      const r = roundCards(key);
+      return { name: r.name, cards: r.cards.map((c) => toPublicCard(c, text?.cards[c.id])) };
     };
-
-    res.json(enriched);
+    res.json({
+      roundA: view("roundA"),
+      roundB: view("roundB"),
+      card_text: text ? { model: text.model, generated_at: text.generated_at } : null
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error loading drill data";
     res.status(500).json({ error: message });
   }
 });
 
-// API to record a single decision to BigQuery (non-blocking)
+const DECISIONS = new Set(["approved", "denied", "not reached"]);
+const VARIANTS = new Set(["plain", "torvant"]);
+
+// Records one decision. The server, not the phone, says whether the card was risky.
 app.post("/api/drill/decision", (req: Request, res: Response) => {
-  // Respond immediately so user interface is never blocked
   res.status(200).json({ status: "queued" });
 
-  const row = req.body as DecisionRow;
-  if (row && row.player_id && row.card_id) {
-    enqueueDecision(row);
+  const b = (req.body || {}) as Partial<DecisionRow>;
+  const card = b.card_id ? cardMap().get(String(b.card_id)) : undefined;
+  if (!card || !b.player_id || !DECISIONS.has(String(b.decision)) || !VARIANTS.has(String(b.card_variant))) {
+    return;
   }
+  const seconds = Math.max(0, Math.min(600, Number(b.seconds) || 0));
+  enqueueDecision({
+    play_id: String(b.play_id || "").slice(0, 64),
+    player_id: String(b.player_id).slice(0, 64),
+    ts: new Date().toISOString(),
+    round: String(b.round || "").slice(0, 32),
+    card_variant: String(b.card_variant),
+    queue_id: String(b.queue_id || "").slice(0, 64),
+    position: Math.max(1, Math.min(8, Number(b.position) || 1)),
+    card_id: card.id,
+    risky: Boolean(card.isRisky),
+    risk_type: (card as Card & { risk_type?: string }).risk_type || null,
+    decision: String(b.decision),
+    seconds: Number(seconds.toFixed(1)),
+    reached: b.decision !== "not reached"
+  });
 });
 
-// API to score a completed round using pure scoring function
 app.post("/api/drill/score", (req: Request, res: Response) => {
   try {
-    const { roundKey, decisions } = req.body as {
-      roundKey: "roundA" | "roundB";
-      decisions: DecisionRecord[];
-    };
-
-    if (!roundKey || !Array.isArray(decisions)) {
+    const { roundKey, decisions } = req.body as { roundKey: RoundKey; decisions: DecisionRecord[] };
+    if ((roundKey !== "roundA" && roundKey !== "roundB") || !Array.isArray(decisions)) {
       res.status(400).json({ error: "Missing roundKey or decisions array" });
       return;
     }
-
-    const drillData = loadDrillData();
-    const roundData = drillData[roundKey];
-    if (!roundData) {
-      res.status(400).json({ error: `Unknown roundKey: ${roundKey}` });
-      return;
-    }
-
-    const scoreResult = calculateRoundScore(roundData.name, roundData.cards, decisions);
-    res.json(scoreResult);
+    const r = roundCards(roundKey);
+    res.json(calculateRoundScore(r.name, r.cards, decisions));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error calculating score";
     res.status(500).json({ error: message });
   }
 });
 
-// API for team results (cached for 30s)
+// Live "Explain with Gemini" button. Limited and timed out; falls back to the stored text.
+const liveCalls: number[] = [];
+app.post("/api/explain", async (req: Request, res: Response) => {
+  const card = cardMap().get(String((req.body || {}).cardId || ""));
+  if (!card) {
+    res.status(400).json({ error: "Unknown card" });
+    return;
+  }
+  const stored = loadCardText()?.cards[card.id];
+  const storedAnswer = (reason: string) =>
+    res.json({ source: "stored", reason, model: stored?.model || null, text: stored || null });
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  const now = Date.now();
+  while (liveCalls.length && now - liveCalls[0] > 3600_000) liveCalls.shift();
+  if (!apiKey) return storedAnswer("no key");
+  if (liveCalls.length >= LIVE_LIMIT_PER_HOUR) return storedAnswer("live limit reached");
+  liveCalls.push(now);
+
+  try {
+    const rules = risk_flags(card.task, card.command);
+    const text = await generateCardText(apiKey, liveModel, card.task, card.command, rules, LIVE_TIMEOUT_MS);
+    res.json({ source: "live", model: liveModel, text });
+  } catch (err) {
+    console.warn("Live explain failed:", (err as Error).message);
+    storedAnswer("live call failed or timed out");
+  }
+});
+
 app.get("/api/team/results", async (_req: Request, res: Response) => {
   try {
-    const results = await getTeamResults();
-    res.json(results);
+    res.json(await getTeamResults());
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error querying team results";
     res.status(500).json({ error: message });
   }
 });
 
-// Team results page
 app.get("/team", (_req: Request, res: Response) => {
   res.sendFile(path.resolve(process.cwd(), "public/team.html"));
 });
 
-// Kept from Step 1: Gemini hello route
+// Kept from Step 1: a one-line Gemini check.
 app.post("/api/hello", async (_req: Request, res: Response) => {
   const apiKey = process.env.GEMINI_API_KEY;
-
   if (!apiKey) {
-    res.status(500).json({
-      error: "GEMINI_API_KEY is not set in environment or Secret Manager."
-    });
+    res.status(500).json({ error: "GEMINI_API_KEY is not set in environment or Secret Manager." });
     return;
   }
-
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: "Say hello in one short line"
-              }
-            ]
-          }
-        ]
-      })
-    });
-
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(geminiModel)}:generateContent`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify({ contents: [{ parts: [{ text: "Say hello in one short line" }] }] })
+      }
+    );
+    const data = (await response.json().catch(() => ({}))) as any;
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      const message =
-        (errorData as { error?: { message?: string } })?.error?.message ||
-        `Gemini API responded with status ${response.status}`;
-      res.status(response.status).json({ error: message });
+      res.status(response.status).json({ error: data?.error?.message || `Gemini responded with status ${response.status}` });
       return;
     }
-
-    const data = await response.json();
-    const reply =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ||
-      "No reply returned from Gemini.";
-
-    res.json({ reply });
+    res.json({ reply: data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "No reply", model: geminiModel });
   } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Internal Server Error";
-    res.status(500).json({ error: errorMessage });
+    res.status(500).json({ error: error instanceof Error ? error.message : "Internal Server Error" });
   }
 });
 

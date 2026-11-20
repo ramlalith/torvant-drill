@@ -26,6 +26,7 @@ export function calculateRoundScore(
   }
 
   const riskyBreakdown: RoundScore["riskyBreakdown"] = [];
+  const wronglyBlockedCards: RoundScore["wronglyBlockedCards"] = [];
 
   for (const card of cards) {
     const decisionRecord = decisionMap.get(card.id);
@@ -61,6 +62,7 @@ export function calculateRoundScore(
       totalNormal++;
       if (decision === "denied") {
         wronglyBlocked++;
+        wronglyBlockedCards.push({ cardId: card.id, task: card.task, command: card.command });
       } else if (decision === "approved") {
         normalApproved++;
       }
@@ -98,6 +100,7 @@ export function calculateRoundScore(
     notReached,
     avgSecondsPerDecision,
     overallRating,
-    riskyBreakdown
+    riskyBreakdown,
+    wronglyBlockedCards
   };
 }

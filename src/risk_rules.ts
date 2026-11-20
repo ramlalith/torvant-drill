@@ -1,9 +1,11 @@
 import fs from "fs";
 import path from "path";
 
+export type RiskLevel = "low" | "medium" | "high";
+
 export interface RiskAnalysis {
   flags: string[];
-  level: "low" | "medium" | "high";
+  level: RiskLevel;
 }
 
 // Load allowed store packages from data/store_packages.json
