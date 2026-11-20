@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>Team results</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .sample-badge {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      border: 2px solid #f59e0b;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 19px;
+      margin-top: 8px;
+    }
+    .variant-card {
+      background: #ffffff;
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .risk-type-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      border-bottom: 2px solid #e2e8f0;
+      font-size: 19px;
+    }
+    .risk-type-row:last-child {
+      border-bottom: none;
+    }
+    .stat-val {
+      font-weight: 800;
+      color: #0f172a;
+    }
+  </style>
+</head>
+<body>
+  <main class="drill-container" id="teamApp">
+    <h1>Team results</h1>
+    <p class="lead-text">This is the report a security lead gets after a drill.</p>
+
+    <div id="loadingBox" class="info-note">
+      Loading latest team results...
+    </div>
+
+    <div id="contentBox" style="display: none;">
+      <div id="sampleWarning" style="display: none; margin-bottom: 20px;">
+        <span class="sample-badge">⚠️ Small sample</span>
+      </div>
+
+      <div class="score-highlight">
+        <div class="score-metric" id="playersCount">👥 Players so far: 0</div>
+      </div>
+
+      <div style="margin-bottom: 28px;">
+        <h2>Card Variant Performance</h2>
+        <div id="variantsContainer"></div>
+      </div>
+
+      <div style="margin-bottom: 28px;">
+        <h2>Risk Type Approvals</h2>
+        <p style="margin-bottom: 12px;">How often each planted risk type was mistakenly approved:</p>
+        <div id="riskTypesContainer" style="background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;"></div>
+      </div>
+
+      <div class="thumb-actions">
+        <a href="/" class="btn-large btn-primary" style="text-decoration: none;" aria-label="Back to Torvant Drill">
+          ◀ Back to Drill
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function fetchTeamResults() {
+      try {
+        const res = await fetch('/api/team/results');
+        const data = await res.json();
+
+        document.getElementById('loadingBox').style.display = 'none';
+        document.getElementById('contentBox').style.display = 'block';
+
+        // Players count
+        document.getElementById('playersCount').textContent = `👥 Players so far: ${data.total_players}`;
+
+        // Small sample note
+        if (data.is_small_sample) {
+          document.getElementById('sampleWarning').style.display = 'block';
+        }
+
+        // Render card variants
+        const variantsContainer = document.getElementById('variantsContainer');
+        if (!data.variants || data.variants.length === 0) {
+          variantsContainer.innerHTML = '<div class="info-note">No card variant data recorded yet.</div>';
+        } else {
+          variantsContainer.innerHTML = data.variants.map(v => `
+            <div class="variant-card">
+              <h3>Variant: <code>${v.card_variant}</code></h3>
+              <div><strong>Risky caught:</strong> <span class="stat-val">${v.risky_caught_pct}%</span> (${v.risky_caught} of ${v.risky_reached} reached)</div>
+              <div><strong>Normal wrongly blocked:</strong> <span class="stat-val">${v.normal_blocked_pct}%</span> (${v.normal_wrongly_blocked} of ${v.normal_reached} reached)</div>
+              <div><strong>Median decision time:</strong> <span class="stat-val">${v.median_seconds}s</span></div>
+            </div>
+          `).join('');
+        }
+
+        // Render risk types
+        const riskTypesContainer = document.getElementById('riskTypesContainer');
+        if (!data.risk_types || data.risk_types.length === 0) {
+          riskTypesContainer.innerHTML = '<div class="info-note" style="border: none;">No risky decisions recorded yet.</div>';
+        } else {
+          riskTypesContainer.innerHTML = data.risk_types.map(r => `
+            <div class="risk-type-row">
+              <div><strong>${r.risk_type}</strong></div>
+              <div><span class="stat-val">${r.approved_pct}% approved</span> (${r.approved_count} of ${r.total_reached})</div>
+            </div>
+          `).join('');
+        }
+      } catch (err) {
+        document.getElementById('loadingBox').innerHTML = '<strong>Error loading team results:</strong> ' + err.message;
+      }
+    }
+
+    fetchTeamResults();
+  </script>
+</body>
+</html>

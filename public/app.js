@@ -1,7 +1,8 @@
 // Torvant Drill - Phone-First Application Flow
 (function () {
-  // Generate random player ID (nothing else is stored)
+  // Generate random player ID and play ID (no names, emails, or IP addresses stored)
   const playerId = "drill-" + Math.random().toString(36).substring(2, 10);
+  const playId = "play-" + Date.now().toString(36) + "-" + Math.random().toString(36).substring(2, 6);
 
   let drillData = null;
   let currentRoundKey = "roundA"; // 'roundA' then 'roundB'
@@ -27,6 +28,36 @@
       return "✓ Approved";
     }
     return "⏳ Not Reached (Time Expired)";
+  }
+
+  // Asynchronously record decision to BigQuery endpoint (non-blocking)
+  function postDecisionToBigQuery(card, decision, seconds, reached, queueIndex) {
+    const payload = {
+      play_id: playId,
+      player_id: playerId,
+      ts: new Date().toISOString(),
+      round: drillData && drillData[currentRoundKey] ? drillData[currentRoundKey].name : currentRoundKey,
+      card_variant: "plain",
+      queue_id: String(queueIndex + 1),
+      card_id: card.id,
+      risky: Boolean(card.isRisky),
+      risk_type: card.risk_type || null,
+      decision: decision,
+      seconds: Number(seconds.toFixed(1)),
+      reached: Boolean(reached)
+    };
+
+    // Non-blocking fire-and-forget: never waits, never breaks screen
+    try {
+      fetch("/api/drill/decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true
+      }).catch((err) => {
+        console.warn("Client decision post warning:", err);
+      });
+    } catch (_) {}
   }
 
   // Screen 1: Start Screen
@@ -79,16 +110,20 @@
     }
   }
 
-  // Start a specific round
+  // Prepare a specific round (does NOT start timers until first card is shown)
   function startRound(roundKey) {
+    if (roundTimer) {
+      clearInterval(roundTimer);
+      roundTimer = null;
+    }
     currentRoundKey = roundKey;
     currentCards = drillData[roundKey].cards;
     currentCardIndex = 0;
     roundDecisions = [];
     roundSecondsLeft = 75;
 
+    // Render the first card. Timer will start only after first card is inserted in DOM.
     renderPlayScreen();
-    startRoundTimer();
   }
 
   // Timer logic for the round
@@ -109,6 +144,7 @@
 
       if (roundSecondsLeft <= 0) {
         clearInterval(roundTimer);
+        roundTimer = null;
         handleTimeExpired();
       }
     }, 1000);
@@ -116,13 +152,16 @@
 
   // When timer runs out, mark remaining as "not reached"
   async function handleTimeExpired() {
-    // Record current in-progress card as not reached
     while (currentCardIndex < currentCards.length) {
+      const card = currentCards[currentCardIndex];
       roundDecisions.push({
-        cardId: currentCards[currentCardIndex].id,
+        cardId: card.id,
         decision: "not reached",
         secondsTaken: 0
       });
+
+      // Stream to BigQuery
+      postDecisionToBigQuery(card, "not reached", 0, false, currentCardIndex);
       currentCardIndex++;
     }
     await finishRound();
@@ -131,14 +170,15 @@
   // Screen 2: Play Screen
   function renderPlayScreen() {
     if (currentCardIndex >= currentCards.length) {
-      clearInterval(roundTimer);
+      if (roundTimer) {
+        clearInterval(roundTimer);
+        roundTimer = null;
+      }
       finishRound();
       return;
     }
 
     const card = currentCards[currentCardIndex];
-    cardStartTime = performance.now();
-
     const roundName = drillData[currentRoundKey].name || currentRoundKey;
     const progressText = `${currentCardIndex + 1} of ${currentCards.length}`;
 
@@ -176,6 +216,12 @@
 
     document.getElementById("denyBtn").addEventListener("click", () => handleDecision("denied"));
     document.getElementById("approveBtn").addEventListener("click", () => handleDecision("approved"));
+
+    // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM!
+    cardStartTime = performance.now();
+    if (currentCardIndex === 0 && !roundTimer) {
+      startRoundTimer();
+    }
   }
 
   function handleDecision(decision) {
@@ -188,6 +234,9 @@
       secondsTaken: elapsedSeconds
     });
 
+    // Write row to BigQuery (non-blocking)
+    postDecisionToBigQuery(card, decision, elapsedSeconds, true, currentCardIndex);
+
     currentCardIndex++;
     renderPlayScreen();
   }
@@ -196,6 +245,7 @@
   async function finishRound() {
     if (roundTimer) {
       clearInterval(roundTimer);
+      roundTimer = null;
     }
 
     container.innerHTML = `<p class="lead-text">Calculating score...</p>`;
@@ -291,7 +341,7 @@
     });
   }
 
-  // Screen 4: After Round Two - Comparison Side by Side
+  // Screen 4: After Round Two - Comparison Side by Side with Link to /team
   function renderComparisonScreen() {
     container.innerHTML = `
       <h2>Drill Summary: Round A & Round B</h2>
@@ -320,7 +370,10 @@
       </div>
 
       <div class="thumb-actions">
-        <button id="restartBtn" class="btn-large btn-primary" aria-label="Restart Drill">
+        <a href="/team" class="btn-large btn-primary" style="text-decoration: none;" aria-label="View Team Results">
+          📊 View Team Results
+        </a>
+        <button id="restartBtn" class="btn-large btn-primary" style="background: #475569; border-color: #334155;" aria-label="Play Again">
           🔄 Play Again
         </button>
       </div>

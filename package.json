@@ -10,6 +10,7 @@
     "dev": "tsc -w"
   },
   "dependencies": {
+    "@google-cloud/bigquery": "^9.6.1",
     "dotenv": "^16.4.7",
     "express": "^4.21.2"
   },

@@ -4,6 +4,7 @@ dotenv.config();
 import express, { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
+import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
 import { calculateRoundScore } from "./scoring";
 import { Card, DecisionRecord, DrillRoundsData } from "./types";
 
@@ -63,6 +64,17 @@ app.get("/api/drill/rounds", (_req: Request, res: Response) => {
   }
 });
 
+// API to record a single decision to BigQuery (non-blocking)
+app.post("/api/drill/decision", (req: Request, res: Response) => {
+  // Respond immediately so user interface is never blocked
+  res.status(200).json({ status: "queued" });
+
+  const row = req.body as DecisionRow;
+  if (row && row.player_id && row.card_id) {
+    enqueueDecision(row);
+  }
+});
+
 // API to score a completed round using pure scoring function
 app.post("/api/drill/score", (req: Request, res: Response) => {
   try {
@@ -89,6 +101,22 @@ app.post("/api/drill/score", (req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : "Error calculating score";
     res.status(500).json({ error: message });
   }
+});
+
+// API for team results (cached for 30s)
+app.get("/api/team/results", async (_req: Request, res: Response) => {
+  try {
+    const results = await getTeamResults();
+    res.json(results);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Error querying team results";
+    res.status(500).json({ error: message });
+  }
+});
+
+// Team results page
+app.get("/team", (_req: Request, res: Response) => {
+  res.sendFile(path.resolve(process.cwd(), "public/team.html"));
 });
 
 // Kept from Step 1: Gemini hello route
