@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Torvant Drill</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+      color: #0f172a;
+      padding: 24px;
+    }
+    .card {
+      background: #ffffff;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 24px;
+      color: #1e293b;
+    }
+    button {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 12px 28px;
+      font-size: 1rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.1s ease;
+    }
+    button:hover {
+      background: #1d4ed8;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    button:disabled {
+      background: #94a3b8;
+      cursor: not-allowed;
+    }
+    #result {
+      margin-top: 24px;
+      padding: 16px;
+      border-radius: 8px;
+      min-height: 54px;
+      font-size: 1.05rem;
+      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      color: #334155;
+      word-break: break-word;
+    }
+    #result.error {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Torvant Drill</h1>
+    <button id="callBtn" onclick="callGemini()">Say Hello</button>
+    <div id="result">Click the button to call Gemini.</div>
+  </div>
+
+  <script>
+    async function callGemini() {
+      const btn = document.getElementById('callBtn');
+      const result = document.getElementById('result');
+      
+      btn.disabled = true;
+      result.className = '';
+      result.textContent = 'Calling Gemini...';
+
+      try {
+        const response = await fetch('/api/hello', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch response');
+        }
+
+        result.textContent = data.reply;
+      } catch (err) {
+        result.className = 'error';
+        result.textContent = 'Error: ' + err.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

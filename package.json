@@ -1,0 +1,20 @@
+{
+  "name": "torvant-drill",
+  "version": "1.0.0",
+  "description": "Small TypeScript web server for Torvant Drill calling Gemini Flash",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsc -w"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
