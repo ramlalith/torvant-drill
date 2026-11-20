@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <title>How Torvant Drill works</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .flow { display: grid; gap: 6px; margin: 12px 0; }
+    .flow-box { border: 2px solid #334155; border-radius: 10px; padding: 10px 12px; background: #fff; font-size: 18px; }
+    .flow-box small { display: block; font-size: 16px; color: #475569; }
+    .flow-box.lane-ahead { border-style: dashed; }
+    .flow-arrow { text-align: center; font-size: 20px; line-height: 1; color: #334155; }
+    .lane-label { font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: .04em; margin-top: 10px; }
+    .how-section { margin-top: 22px; }
+    .how-table { width: 100%; border-collapse: collapse; font-size: 17px; }
+    .how-table th, .how-table td { border-bottom: 2px solid #e2e8f0; padding: 8px 6px; text-align: left; vertical-align: top; }
+    .how-table th { font-size: 15px; text-transform: uppercase; color: #475569; }
+    .trace-line { font-family: ui-monospace, Menlo, monospace; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding: 6px 0; word-break: break-word; }
+    .trace-line strong { font-family: inherit; }
+    .roles li, .limits li { font-size: 18px; margin: 6px 0; }
+    .footer-links { margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <main class="drill-container">
+    <h1>How it works</h1>
+    <p class="lead-text">Gemini builds the drill ahead of time. Code runs the play. A person decides. Nothing is ever run.</p>
+
+    <section class="how-section" aria-label="Diagram">
+      <h2>The two paths</h2>
+      <div class="lane-label">Before anyone plays (stored)</div>
+      <div class="flow">
+        <div class="flow-box lane-ahead">store-dev-agent works on the store app<small>Every command stops at ADK Tool Confirmation and is recorded</small></div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="flow-box lane-ahead">queue-builder agent reads the session<small>Tools + the approval-requests skill. Plants 2 risky requests. Code checks each one</small></div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="flow-box lane-ahead">Gemini writes each card's words<small>Checked against a schema. Stored with the model name</small></div>
+      </div>
+      <div class="lane-label">What a player touches (code only)</div>
+      <div class="flow">
+        <div class="flow-box">Drill queue of 8 requests</div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="flow-box">Player approves or denies<small>Plain card in one round, Torvant card in the other, random order</small></div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="flow-box">Risk rules in code set the level<small>Gemini may raise it, never lower it</small></div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="flow-box">Decision stored in BigQuery → team results</div>
+      </div>
+    </section>
+
+    <section class="how-section">
+      <h2>Who does what</h2>
+      <ul class="roles">
+        <li><strong>Gemini</strong> builds the drill queues and writes the card text. It never decides and never runs anything.</li>
+        <li><strong>Code</strong> sets the risk level from fixed rules and scores each round.</li>
+        <li><strong>A person</strong> approves or denies.</li>
+        <li><strong>Nothing is ever run.</strong> No source file can start a command, and a unit test checks this.</li>
+      </ul>
+    </section>
+
+    <section class="how-section">
+      <h2>Google tools in this product</h2>
+      <p>Built from what this running service really uses.</p>
+      <div id="tools">Loading…</div>
+      <p id="builtWith"></p>
+    </section>
+
+    <section class="how-section">
+      <h2>The agent's trace</h2>
+      <div id="trace">Loading…</div>
+    </section>
+
+    <section class="how-section">
+      <h2>Checks</h2>
+      <div id="checks">Loading…</div>
+    </section>
+
+    <section class="how-section">
+      <h2>Honest limits</h2>
+      <ul class="limits">
+        <li>A 60 second game does not prove approval fatigue. It shows the measuring method.</li>
+        <li>Results are a small sample.</li>
+        <li>The risk rules are patterns. They catch known kinds of risk, not every trick.</li>
+        <li>We fix the card, not the person.</li>
+      </ul>
+    </section>
+
+    <nav class="footer-links" aria-label="Pages">
+      <a href="/">◀ Play the drill</a>
+      <a href="/team">📊 Team results</a>
+    </nav>
+  </main>
+
+  <script>
+    (function () {
+      function esc(t) {
+        return String(t == null ? "" : t).replace(/[&<>"']/g, function (c) {
+          return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c];
+        });
+      }
+      var q = "";
+      try { q = localStorage.getItem("torvant_last_queue") || ""; } catch (_) {}
+      fetch("/api/how" + (q && q.indexOf("round") !== 0 ? "?queue=" + encodeURIComponent(q) : ""))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          document.getElementById("tools").innerHTML =
+            '<table class="how-table"><thead><tr><th>Tool</th><th>Its job here</th><th>Evidence</th></tr></thead><tbody>' +
+            d.tools.map(function (t) { return "<tr><td><strong>" + esc(t.tool) + "</strong></td><td>" + esc(t.job) + "</td><td>" + esc(t.evidence) + "</td></tr>"; }).join("") +
+            "</tbody></table>";
+          document.getElementById("builtWith").textContent = d.built_with;
+
+          if (d.queue) {
+            document.getElementById("trace").innerHTML =
+              "<p>Queue <strong>" + esc(d.queue.queue_id) + "</strong>, built from session " + esc(d.queue.session_id) +
+              " by " + esc(d.queue.model) + " at " + esc(new Date(d.queue.created_at).toLocaleString()) + ".</p>" +
+              d.queue.trace.map(function (t) {
+                return '<div class="trace-line"><strong>' + esc(t.step) + ". " + esc(t.tool) + "</strong> " +
+                  (t.kind === "skill" ? "" : esc(JSON.stringify(t.args))) + "<br>→ " + esc(t.result) +
+                  " <em>(" + esc(t.model) + ")</em></div>";
+              }).join("");
+          } else {
+            document.getElementById("trace").textContent = "No agent-built queue is stored yet. Rounds come from the hand written cards.";
+          }
+
+          document.getElementById("checks").innerHTML = d.checks
+            ? "<p><strong>" + esc(d.checks.pass) + " of " + esc(d.checks.tests) + " unit tests pass</strong>" +
+              (d.checks.fail ? ", " + esc(d.checks.fail) + " fail" : "") + ", from the test run inside the last build.</p>"
+            : "<p>No test results found for this build.</p>";
+        })
+        .catch(function () {
+          document.getElementById("tools").textContent = "Could not load.";
+        });
+    })();
+  </script>
+</body>
+</html>

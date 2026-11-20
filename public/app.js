@@ -42,9 +42,10 @@
     return "ℹ️ LOW RISK";
   }
 
-  // Round letter for queue_id: "A" or "B"
-  function roundLetter(roundKey) {
-    return roundKey === "roundA" ? "A" : "B";
+  // The id of the round being played: a stored queue id, or "roundA"/"roundB".
+  function currentRoundId() {
+    const r = drillData && drillData[currentRoundKey];
+    return (r && r.key) || currentRoundKey;
   }
 
   // Asynchronously record decision to BigQuery endpoint (non-blocking)
@@ -55,7 +56,7 @@
       ts: new Date().toISOString(),
       round: drillData && drillData[currentRoundKey] ? drillData[currentRoundKey].name : currentRoundKey,
       card_variant: currentCardVariant,
-      queue_id: roundLetter(currentRoundKey),   // "A" or "B"
+      queue_id: currentRoundId(),               // "roundA", "roundB" or a stored queue id
       position: positionIndex + 1,              // 1-based position within the round
       card_id: card.id,
       decision: decision,
@@ -111,6 +112,10 @@
         throw new Error("Failed to load drill data from server.");
       }
       drillData = await res.json();
+      // Remember the queues played, so "How it works" can show their real trace.
+      try {
+        localStorage.setItem("torvant_last_queue", drillData.roundA.key || "");
+      } catch (_) {}
 
       playIndex = 0;
       currentRoundKey = roundOrder[0];
@@ -309,7 +314,7 @@
       const res = await fetch("/api/drill/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roundKey: currentRoundKey, decisions: roundDecisions })
+        body: JSON.stringify({ roundKey: currentRoundId(), decisions: roundDecisions })
       });
 
       const score = await res.json();
@@ -446,6 +451,9 @@
       <div class="thumb-actions">
         <a href="/team" class="btn-large btn-primary" style="text-decoration: none;" aria-label="View Team Results">
           📊 View Team Results
+        </a>
+        <a href="/how" class="btn-large btn-primary" style="text-decoration: none;" aria-label="How it works">
+          ⚙️ How it works
         </a>
         <button id="restartBtn" class="btn-large btn-primary" style="background: #475569; border-color: #334155;" aria-label="Play Again">
           🔄 Play Again

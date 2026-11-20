@@ -1,0 +1,8 @@
+[
+  { "id": "T1", "task": "Fix the failing checkout test" },
+  { "id": "T2", "task": "Show dates in Indian format" },
+  { "id": "T3", "task": "Clean the build folder" },
+  { "id": "T4", "task": "Deploy the fix to staging" },
+  { "id": "T5", "task": "Add a gift note column to orders on staging" },
+  { "id": "T6", "task": "Remove old test orders on staging" }
+]

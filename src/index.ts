@@ -5,7 +5,9 @@ import express, { Request, Response } from "express";
 import path from "path";
 import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
 import { generateCardText } from "./card_text";
-import { loadCards, loadCardText, loadRounds, toPublicCard } from "./cards_store";
+import { loadCardText, toPublicCard } from "./cards_store";
+import { buildHow } from "./how";
+import { findCard, pickRounds, roundByKey } from "./queues";
 import { risk_flags } from "./risk_rules";
 import { calculateRoundScore } from "./scoring";
 import { Card, DecisionRecord } from "./types";
@@ -22,38 +24,25 @@ app.use(express.json({ limit: "64kb" }));
 // Only public/ is served as files. data/ is NOT served, so answers stay on the server.
 app.use(express.static(path.resolve(process.cwd(), "public")));
 
-type RoundKey = "roundA" | "roundB";
-
-function cardMap(): Map<string, Card> {
-  return new Map(loadCards().map((c) => [c.id, c]));
-}
-
-function roundCards(key: RoundKey): { name: string; cards: Card[] } {
-  const rounds = loadRounds();
-  const map = cardMap();
-  const r = rounds[key];
-  return {
-    name: r.name || (key === "roundA" ? "Round A" : "Round B"),
-    cards: r.cardIds.map((id) => map.get(id)).filter((c): c is Card => Boolean(c))
-  };
-}
-
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
-// Cards as the phone sees them before a decision: task, command, level, card text.
-// No risky flag, risk type or reason is sent until the round is scored.
+// The two rounds for one play, as the phone sees them before a decision:
+// task, command, level and card text. No risky flag, risk type or reason.
 app.get("/api/drill/rounds", (_req: Request, res: Response) => {
   try {
+    const { source, rounds } = pickRounds();
+    const view = (r: (typeof rounds)[number]) => ({
+      key: r.key,
+      name: r.name,
+      cards: r.cards.map((c) => toPublicCard(c, r.text[c.id]))
+    });
     const text = loadCardText();
-    const view = (key: RoundKey) => {
-      const r = roundCards(key);
-      return { name: r.name, cards: r.cards.map((c) => toPublicCard(c, text?.cards[c.id])) };
-    };
     res.json({
-      roundA: view("roundA"),
-      roundB: view("roundB"),
+      source,
+      roundA: view(rounds[0]),
+      roundB: view(rounds[1]),
       card_text: text ? { model: text.model, generated_at: text.generated_at } : null
     });
   } catch (error) {
@@ -70,7 +59,7 @@ app.post("/api/drill/decision", (req: Request, res: Response) => {
   res.status(200).json({ status: "queued" });
 
   const b = (req.body || {}) as Partial<DecisionRow>;
-  const card = b.card_id ? cardMap().get(String(b.card_id)) : undefined;
+  const card = b.card_id ? findCard(String(b.card_id))?.card : undefined;
   if (!card || !b.player_id || !DECISIONS.has(String(b.decision)) || !VARIANTS.has(String(b.card_variant))) {
     return;
   }
@@ -85,7 +74,7 @@ app.post("/api/drill/decision", (req: Request, res: Response) => {
     position: Math.max(1, Math.min(8, Number(b.position) || 1)),
     card_id: card.id,
     risky: Boolean(card.isRisky),
-    risk_type: (card as Card & { risk_type?: string }).risk_type || null,
+    risk_type: card.risk_type || null,
     decision: String(b.decision),
     seconds: Number(seconds.toFixed(1)),
     reached: b.decision !== "not reached"
@@ -94,12 +83,12 @@ app.post("/api/drill/decision", (req: Request, res: Response) => {
 
 app.post("/api/drill/score", (req: Request, res: Response) => {
   try {
-    const { roundKey, decisions } = req.body as { roundKey: RoundKey; decisions: DecisionRecord[] };
-    if ((roundKey !== "roundA" && roundKey !== "roundB") || !Array.isArray(decisions)) {
-      res.status(400).json({ error: "Missing roundKey or decisions array" });
+    const { roundKey, decisions } = req.body as { roundKey: string; decisions: DecisionRecord[] };
+    const r = roundByKey(String(roundKey || ""));
+    if (!r || !Array.isArray(decisions)) {
+      res.status(400).json({ error: "Unknown round or missing decisions array" });
       return;
     }
-    const r = roundCards(roundKey);
     res.json(calculateRoundScore(r.name, r.cards, decisions));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error calculating score";
@@ -110,12 +99,13 @@ app.post("/api/drill/score", (req: Request, res: Response) => {
 // Live "Explain with Gemini" button. Limited and timed out; falls back to the stored text.
 const liveCalls: number[] = [];
 app.post("/api/explain", async (req: Request, res: Response) => {
-  const card = cardMap().get(String((req.body || {}).cardId || ""));
-  if (!card) {
+  const found = findCard(String((req.body || {}).cardId || ""));
+  if (!found) {
     res.status(400).json({ error: "Unknown card" });
     return;
   }
-  const stored = loadCardText()?.cards[card.id];
+  const card = found.card;
+  const stored = found.text;
   const storedAnswer = (reason: string) =>
     res.json({ source: "stored", reason, model: stored?.model || null, text: stored || null });
 
@@ -143,6 +133,14 @@ app.get("/api/team/results", async (_req: Request, res: Response) => {
     const message = error instanceof Error ? error.message : "Error querying team results";
     res.status(500).json({ error: message });
   }
+});
+
+app.get("/api/how", (req: Request, res: Response) => {
+  res.json(buildHow(typeof req.query.queue === "string" ? req.query.queue : undefined));
+});
+
+app.get("/how", (_req: Request, res: Response) => {
+  res.sendFile(path.resolve(process.cwd(), "public/how.html"));
 });
 
 app.get("/team", (_req: Request, res: Response) => {

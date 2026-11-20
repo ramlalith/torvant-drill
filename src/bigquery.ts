@@ -46,7 +46,8 @@ export interface TeamResults {
 
 const projectId = process.env.GOOGLE_CLOUD_PROJECT || "gen-lang-client-0405873744";
 const datasetId = "torvant_drill";
-const tableId = "decisions";
+// Set DECISIONS_TABLE to start a fresh, empty results table (for example before the hall plays).
+const tableId = process.env.DECISIONS_TABLE || "decisions";
 
 let bqClient: BigQuery | null = null;
 function getBigQueryClient(): BigQuery {

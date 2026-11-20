@@ -12,9 +12,10 @@ COPY src ./src
 COPY test ./test
 COPY data ./data
 COPY public ./public
+COPY skills ./skills
 
 RUN npm run build
-RUN npm test
+RUN npm test > test-output.txt 2>&1 || (cat test-output.txt && exit 1)
 
 # Stage 2: Production runner
 FROM node:20-alpine
@@ -31,6 +32,8 @@ RUN npm install --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/data ./data
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/skills ./skills
+COPY --from=builder /app/test-output.txt ./test-output.txt
 
 EXPOSE 8080
 

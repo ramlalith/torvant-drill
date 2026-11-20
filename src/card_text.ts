@@ -205,13 +205,15 @@ export async function generateCardText(
   task: string,
   command: string,
   rules: { flags: string[]; level: RiskLevel },
-  timeoutMs = 30000
+  timeoutMs = 30000,
+  extraSystem = ""
 ): Promise<StoredCardText> {
   const userText = buildUserPrompt(task, command, rules.flags, rules.level);
+  const systemText = extraSystem ? `${CARD_WRITER_PROMPT}\n\n${extraSystem}` : CARD_WRITER_PROMPT;
   let lastProblems: string[] = [];
   for (let attempt = 0; attempt < 2; attempt++) {
     const extra = attempt === 0 ? "" : `\n\nYour last answer was rejected: ${lastProblems.join("; ")}. Fix these.`;
-    const out = await geminiJson(apiKey, model, CARD_WRITER_PROMPT, userText + extra, CARD_TEXT_SCHEMA, timeoutMs);
+    const out = await geminiJson(apiKey, model, systemText, userText + extra, CARD_TEXT_SCHEMA, timeoutMs);
     lastProblems = validateModelCardText(out);
     if (lastProblems.length === 0) {
       const m = out as ModelCardText;
