@@ -1,161 +1,108 @@
-/* Terminal skin for the drill page only (index.html). Generic look, own colours.
-   Layout and colour only: no behaviour lives here. No animation. */
+/* Drill page only: one terminal window. Uses the tokens from style.css.
+   Generic look. No animation. */
 
-body.term {
-  --t-page: #23262d;
-  --t-window: #121419;
-  --t-title: #2b2f37;
-  --t-panel: #1b1e25;
-  --t-line: #2f3440;
-  --t-edge: #4b5260;
-  --t-text: #e7e9ee;
-  --t-soft: #d6d9df;
-  --t-dim: #9ba1ab;
-  --t-accent: #7fd4a8;
-  --t-link: #9cc3ff;
-  --t-mono: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace;
-  background: var(--t-page);
-  padding: 10px;
-  font-family: var(--t-mono);
-}
-body.term * { font-family: var(--t-mono); transition: none !important; animation: none !important; }
-
-/* One dark terminal window with a title bar */
+/* The window */
 .term-window {
   width: 100%;
   max-width: 760px;
-  margin-top: 6px;
-  border: 2px solid var(--t-edge);
-  border-radius: 10px;
-  background: var(--t-window);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
 }
 .term-titlebar {
-  background: var(--t-title);
-  color: var(--t-soft);
-  font-size: 16px;
-  padding: 8px 14px;
-  border-bottom: 2px solid var(--t-edge);
-  border-radius: 8px 8px 0 0;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  color: var(--label);
+  padding: var(--s2) var(--s3);
+  border-bottom: 1px solid var(--border);
   white-space: pre-wrap;
 }
 /* On a narrow screen the title breaks between name and path, never inside one. */
 .term-titlebar .t-part { white-space: nowrap; color: inherit; }
-body.term .drill-container {
-  max-width: none;
-  margin: 0;
-  background: var(--t-window);
-  border: 0;
-  border-radius: 0 0 8px 8px;
-  box-shadow: none;
-  padding: 14px 14px 0;
-}
+body.term .drill-container { padding: var(--s3) var(--s3) 0; }
+body.term .drill-container > .thumb-actions:last-child { padding-bottom: var(--s3); }
 
-/* Text */
-body.term h1, body.term h2, body.term h3, body.term h4 { color: var(--t-text); text-align: left; }
-body.term h1 { font-size: 26px; }
-body.term h2 { font-size: 22px; }
-body.term p, body.term li, body.term div, body.term dd, body.term span { color: var(--t-soft); }
-body.term .lead-text { color: var(--t-text); text-align: left; font-weight: 600; font-size: 19px; }
-body.term a { color: var(--t-link); }
-body.term .info-note {
-  background: var(--t-panel);
-  border-left: 4px solid var(--t-edge);
-  color: var(--t-soft);
-  border-radius: 4px;
+/* Status line, earlier agent output */
+.status-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: 0 0 var(--s2);
+  margin: 0 0 var(--s2);
+  border-bottom: 1px solid var(--border);
 }
-
-/* Status line and earlier agent output */
-body.term .status-bar { border-bottom: 1px solid var(--t-line); margin-bottom: 10px; padding-bottom: 8px; }
-body.term .badge-progress { color: var(--t-dim); font-size: 18px; font-weight: 400; }
-body.term .badge-timer { background: var(--t-panel); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 4px; font-size: 18px; }
-body.term .badge-timer.urgent { background: #3a1414; color: #ffb4b4; border-color: #b91c1c; }
-.term-history { margin-bottom: 10px; }
-.term-history div { color: var(--t-dim); font-size: 16px; line-height: 1.5; white-space: pre-wrap; }
+.badge-progress { font-family: var(--mono); font-size: var(--fs-mono); color: var(--text); }
+.progress-bar { color: var(--text-2); margin-left: var(--s2); letter-spacing: 0.10em; }
+.badge-timer { font-family: var(--sans); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.badge-timer.urgent { color: var(--red-text); }
+.term-history { margin: 0 0 var(--s3); }
+.term-history div {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  color: var(--label);
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* The request: a plain terminal prompt */
-body.term .request-card { gap: 10px; margin-bottom: 12px; }
-body.term .label-title {
-  color: var(--t-dim);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 400;
-  font-size: 16px;
-}
-body.term .label-title::after { content: ":"; }
-body.term .task-box {
-  background: transparent;
-  border: 0;
-  padding: 2px 0 0;
-  color: var(--t-text);
-  font-weight: 600;
-  font-size: 19px;
-}
+.request-card { display: grid; gap: var(--s3); margin: 0 0 var(--s3); }
+.label-title::after { content: ":"; }
+.task-box { color: var(--text); font-weight: 600; margin: var(--s1) 0 0; }
 body.term .command-box {
   background: transparent;
   border: 0;
-  border-left: 3px solid var(--t-accent);
   border-radius: 0;
-  padding: 4px 0 4px 10px;
-  color: var(--t-text);
-  font-size: 18px;
+  padding: 0;
+  margin: var(--s1) 0 0;
 }
-body.term .command-box code { color: var(--t-text); }
-body.term .command-box code::before { content: "$ "; color: var(--t-accent); }
-body.term .command-small { font-size: 16px; }
+body.term .command-box code::before { content: "$ "; color: var(--label); }
 
-/* Torvant card: the same window, the request as a structured card */
-body.term .torvant-panel { background: var(--t-panel); border: 2px solid var(--t-edge); border-radius: 6px; }
-body.term .torvant-level { color: var(--t-text); }
-body.term .level-low { border-left: 6px solid var(--t-dim); }
-body.term .level-medium { border-left: 6px solid #d08a2c; color: #f2c98a; }
-body.term .torvant-panel.panel-high { border: 5px solid #d43c3c; }
-body.term .torvant-level.level-high { background: #b91c1c; color: #ffffff; border-left: 0; border-radius: 4px; }
-body.term .torvant-facts dt { color: var(--t-dim); }
-body.term .torvant-facts dd { color: var(--t-text); }
-body.term .torvant-note, body.term .torvant-text { color: var(--t-soft); }
-
-/* Approve and Deny: pinned at the bottom of the screen */
-body.term .play-actions { background: var(--t-window); border-top: 1px solid var(--t-line); padding-left: 0; padding-right: 0; }
-body.term .btn-large { border-radius: 6px; font-size: 20px; }
-body.term .btn-deny { background: #b91c1c; color: #ffffff; border-color: #ef6b6b; }
-body.term .btn-approve { background: #15803d; color: #ffffff; border-color: #5fd08e; }
-body.term .btn-primary { background: #1f4fbf; color: #ffffff; border-color: #6d8fd6; }
-body.term .btn-large span, body.term .btn-large { color: #ffffff; }
-body.term .confirm-text { color: var(--t-text); }
-
-/* Score and summary screens */
-body.term .score-highlight, body.term .round-card, body.term .risky-item, body.term .questions {
-  background: var(--t-panel);
-  border: 1px solid var(--t-line);
-  border-radius: 6px;
+/* Torvant card: the structured card, same window */
+.torvant-panel { border: 1px solid var(--border); border-radius: var(--r-item); padding: var(--s3); display: grid; gap: var(--s2); }
+.torvant-level {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--on-band);
+  border-radius: var(--r-item);
+  padding: var(--s2) var(--s3);
 }
-body.term .score-metric { color: var(--t-text); font-size: 20px; }
-body.term .rating-poor { background: #2a1515; color: #ffb4b4; border-color: #b91c1c; }
-body.term .rating-excellent { background: #12261a; color: #9fe3b7; border-color: #15803d; }
-body.term .rating-good { background: #142033; color: #a9c8ff; border-color: #3b6fd8; }
-body.term .rating-attention { background: #2b2210; color: #f2c98a; border-color: #b7791f; }
-body.term .risky-item.caught { border-left: 6px solid #15803d; }
-body.term .risky-item.missed { border-left: 6px solid #d43c3c; }
-body.term .explanation-text { background: #14171d; color: var(--t-soft); border-left: 3px solid var(--t-edge); }
-body.term .btn-explain { background: var(--t-window); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 6px; }
-body.term .explain-card { background: #14171d; border: 1px solid var(--t-edge); }
-body.term .q-text { color: var(--t-text); }
-body.term .q-opt { background: var(--t-window); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 6px; }
-body.term .q-opt[aria-pressed="true"] { background: #1f4fbf; color: #ffffff; border-color: #6d8fd6; }
-body.term .site-footer { color: var(--t-soft); }
+.torvant-level.level-low { background: var(--low); }
+.torvant-level.level-medium { background: var(--medium); }
+.torvant-level.level-high { background: var(--high); }
+.torvant-note { color: var(--text-2); font-size: var(--fs-mono); font-family: var(--mono); }
+.torvant-text { color: var(--text-2); }
+.torvant-facts { margin: 0; display: grid; gap: var(--s1); }
+.torvant-facts dt { margin: var(--s2) 0 0; }
+.torvant-facts dd { margin: 0; color: var(--text); }
 
-/* Step 11: feedback. Static states only, no animation. */
-body.term .badge-progress { color: var(--t-text); font-size: 18px; }
-body.term .progress-bar { color: var(--t-accent); letter-spacing: 1px; margin-left: 6px; }
-.term-history div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Approve and Deny: same size, same weight, neutral. Pinned to the bottom. */
+.play-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s2);
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  padding: var(--s2) 0 calc(var(--s2) + env(safe-area-inset-bottom));
+  margin: 0;
+}
+.play-actions .confirm-box { grid-column: 1 / -1; }
+.confirm-box { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+.confirm-text { grid-column: 1 / -1; margin: 0; text-align: center; color: var(--text); font-weight: 600; }
+.btn-deny, .btn-approve { background: var(--panel); color: var(--text); border-color: var(--button-border); }
 
-/* Pressed: clearly darker with an inset edge. Hover on desktop: slightly darker. */
-body.term .btn-deny:hover { background: #991b1b; }
-body.term .btn-approve:hover { background: #166534; }
-body.term .btn-primary:hover { background: #1a43a3; }
-body.term .btn-deny:active { background: #6b1111; border-color: #ffb4b4; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
-body.term .btn-approve:active { background: #0c4a23; border-color: #b7f0cc; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
-body.term .btn-primary:active { background: #12306f; border-color: #cddcff; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
+/* Pressed: a clearly lighter fill. Static states only. */
+.btn-deny:hover, .btn-approve:hover { background: #1c1d23; }
+.btn-deny:active, .btn-approve:active { background: #2a2b33; border-color: var(--text); }
+.btn-primary:active { background: #c9c7c0; }
 
-/* Visible focus ring for keyboard users */
-body.term button:focus-visible, body.term a:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+/* Visible focus ring */
+button:focus-visible, a:focus-visible { outline: 3px solid var(--link); outline-offset: var(--s1); }

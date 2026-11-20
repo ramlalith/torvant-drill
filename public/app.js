@@ -38,16 +38,16 @@
 
   // Format decision text with symbol (never color alone)
   function formatChoice(decision) {
-    if (decision === "denied") return "🛑 Denied";
-    if (decision === "approved") return "✓ Approved";
-    return "⏳ Not Reached (Time Expired)";
+    if (decision === "denied") return "Denied";
+    if (decision === "approved") return "Approved";
+    return "Not reached (time ran out)";
   }
 
-  // Map risk level to a human-readable badge label (text + symbol, never color alone)
+  // Risk level in words, never colour alone
   function riskLevelLabel(level) {
-    if (level === "high") return "⛔ HIGH RISK";
-    if (level === "medium") return "⚠️ MEDIUM RISK";
-    return "ℹ️ LOW RISK";
+    if (level === "high") return "HIGH RISK";
+    if (level === "medium") return "MEDIUM RISK";
+    return "LOW RISK";
   }
 
   // The id of the round being played: a stored queue id, or "roundA"/"roundB".
@@ -96,7 +96,7 @@
 
       <div class="thumb-actions">
         <button id="startBtn" class="btn-large btn-primary" aria-label="Start Torvant Drill">
-          ▶ Start Drill
+          Start drill
         </button>
       </div>
     `;
@@ -128,7 +128,7 @@
         <p class="info-note">${err.message}</p>
         <div class="thumb-actions">
           <button class="btn-large btn-primary" onclick="location.reload()" aria-label="Retry loading">
-            🔄 Retry
+            Retry
           </button>
         </div>
       `;
@@ -159,7 +159,7 @@
       roundSecondsLeft--;
       const timerEl = document.getElementById("roundTimer");
       if (timerEl) {
-        timerEl.textContent = `⏱ ${roundSecondsLeft}s`;
+        timerEl.textContent = `${roundSecondsLeft}s`;
         if (roundSecondsLeft <= 15) timerEl.classList.add("urgent");
       }
 
@@ -194,8 +194,8 @@
           <div class="torvant-text">Card text not generated yet</div>
         </div>`;
     }
-    const fits = t.fits_task === "yes" ? "✓ Yes" : "✕ No";
-    const undo = { yes: "✓ Yes", no: "✕ No", partly: "◐ Partly" }[t.can_be_undone] || escapeHtml(t.can_be_undone);
+    const fits = t.fits_task === "yes" ? "Yes" : "No";
+    const undo = { yes: "Yes", no: "No", partly: "Partly" }[t.can_be_undone] || escapeHtml(t.can_be_undone);
     const raised = t.raised_by_model ? `<div class="torvant-note">Level raised by Gemini</div>` : "";
     return `
       <div class="torvant-panel panel-${level}" aria-label="Torvant card">
@@ -236,7 +236,7 @@
           ${progressText} <span class="progress-bar" aria-hidden="true">${progressBar}</span>
         </span>
         <span id="roundTimer" class="badge-timer ${roundSecondsLeft <= 15 ? 'urgent' : ''}" aria-label="Time remaining: ${roundSecondsLeft} seconds">
-          ⏱ ${roundSecondsLeft}s
+          ${roundSecondsLeft}s
         </span>
       </div>
 
@@ -260,10 +260,10 @@
 
       <div class="thumb-actions play-actions">
         <button id="denyBtn" class="btn-large btn-deny" aria-label="Deny this request">
-          🛑 Deny
+          Deny
         </button>
         <button id="approveBtn" class="btn-large btn-approve" aria-label="Approve this request">
-          ✓ Approve
+          Approve
         </button>
       </div>
     `;
@@ -298,9 +298,9 @@
     if (!actions) return;
     actions.innerHTML = `
       <div class="confirm-box" role="alertdialog" aria-label="High risk confirmation">
-        <p class="confirm-text">⛔ This is high risk. Approve anyway?</p>
-        <button id="goBackBtn" class="btn-large btn-deny" aria-label="Go back to the request">◀ Go back</button>
-        <button id="confirmApproveBtn" class="btn-large btn-approve" aria-label="Yes, approve anyway">✓ Yes, approve</button>
+        <p class="confirm-text">This is high risk. Approve anyway?</p>
+        <button id="goBackBtn" class="btn-large btn-deny" aria-label="Go back to the request">Go back</button>
+        <button id="confirmApproveBtn" class="btn-large btn-approve" aria-label="Yes, approve anyway">Yes, approve</button>
       </div>`;
     document.getElementById("goBackBtn").addEventListener("click", () => {
       const keep = cardStartTime;
@@ -367,7 +367,7 @@
       .sort((a, b) => (b.item.decision === "approved") - (a.item.decision === "approved") || a.i - b.i)
       .map((x) => x.item);
     missedFirst.forEach((item) => {
-      const statusSymbol = item.caught ? "✓ [CAUGHT]" : "✕ [MISSED]";
+      const statusSymbol = item.caught ? "Caught" : "Missed";
       const itemClass = item.caught ? "caught" : "missed";
       riskyCardsHtml += `
         <div class="risky-item ${itemClass}">
@@ -392,7 +392,7 @@
         <div class="risky-item missed">
           <div><strong>Task:</strong> ${escapeHtml(item.task)}</div>
           <div><pre class="command-box"><code>${escapeHtml(item.command)}</code></pre></div>
-          <div class="choice-badge">Your decision: ${formatChoice("denied")} &nbsp; <strong>✕ [NORMAL REQUEST]</strong></div>
+          <div class="choice-badge">Your decision: ${formatChoice("denied")} &nbsp; <strong>Normal request</strong></div>
           ${explainButton(item.cardId)}
         </div>
       `;
@@ -400,26 +400,24 @@
 
     // After round 1 (playIndex 0), there is a second round to play
     const isFirstPlay = playIndex === 0;
-    const nextButtonLabel = isFirstPlay ? "Next: Start Round 2 ▶" : "View Final Comparison ▶";
+    const nextButtonLabel = isFirstPlay ? "Next: round 2" : "See the summary";
 
     container.innerHTML = `
       <h2>${escapeHtml(variantTitle(score.cardVariant))}</h2>
 
-      <div class="score-highlight">
-        <div class="score-metric">🎯 You caught ${score.riskyCaught} of ${score.totalRisky} risky requests</div>
-        <div class="score-metric">⚠️ You wrongly blocked ${score.wronglyBlocked} of ${score.totalNormal} normal requests</div>
-        <div class="score-metric">⚡ ${score.avgSecondsPerDecision} seconds per decision</div>
-        ${score.notReached > 0 ? `<div class="score-metric">⏳ ${score.notReached} requests not reached in 75s</div>` : ""}
-        <div class="score-rating ${ratingClass}">
-          Evaluation: ${escapeHtml(score.overallRating)}
-        </div>
+      <div class="stats">
+        <div class="stat"><span class="stat-num">${score.riskyCaught} of ${score.totalRisky}</span><span class="stat-label">Risky requests caught</span></div>
+        <div class="stat"><span class="stat-num">${score.wronglyBlocked} of ${score.totalNormal}</span><span class="stat-label">Normal requests wrongly blocked</span></div>
+        <div class="stat"><span class="stat-num">${score.avgSecondsPerDecision}s</span><span class="stat-label">Per decision</span></div>
+        ${score.notReached > 0 ? `<div class="stat"><span class="stat-num">${score.notReached}</span><span class="stat-label">Not reached in 75s</span></div>` : ""}
       </div>
+      <p class="score-rating ${ratingClass}">Result: ${escapeHtml(score.overallRating)}</p>
 
-      <h3>Planted Risky Requests Review:</h3>
+      <h3>Planted risky requests</h3>
       <div class="risky-list">
         ${riskyCardsHtml}
       </div>
-      ${blockedHtml ? `<h3>Normal requests you blocked:</h3><div class="risky-list">${blockedHtml}</div>` : ""}
+      ${blockedHtml ? `<h3>Normal requests you blocked</h3><div class="risky-list">${blockedHtml}</div>` : ""}
 
       <div class="thumb-actions">
         <button id="nextRoundBtn" class="btn-large btn-primary" aria-label="${nextButtonLabel}">
@@ -457,18 +455,22 @@
       <div class="comparison-grid">
         <div class="round-card">
           <h3>${escapeHtml(variantTitle(scoreA.cardVariant))}</h3>
-          <p><strong>Caught:</strong> ${scoreA.riskyCaught} / ${scoreA.totalRisky} risky</p>
-          <p><strong>Wrong blocks:</strong> ${scoreA.wronglyBlocked} / ${scoreA.totalNormal} normal</p>
-          <p><strong>Speed:</strong> ${scoreA.avgSecondsPerDecision}s / decision</p>
-          <p><strong>Result:</strong> ${escapeHtml(scoreA.overallRating)}</p>
+          <div class="stats">
+            <div class="stat"><span class="stat-num">${scoreA.riskyCaught} of ${scoreA.totalRisky}</span><span class="stat-label">Risky caught</span></div>
+            <div class="stat"><span class="stat-num">${scoreA.wronglyBlocked} of ${scoreA.totalNormal}</span><span class="stat-label">Wrongly blocked</span></div>
+            <div class="stat"><span class="stat-num">${scoreA.avgSecondsPerDecision}s</span><span class="stat-label">Per decision</span></div>
+          </div>
+          <p class="score-rating">Result: ${escapeHtml(scoreA.overallRating)}</p>
         </div>
 
         <div class="round-card">
           <h3>${escapeHtml(variantTitle(scoreB.cardVariant))}</h3>
-          <p><strong>Caught:</strong> ${scoreB.riskyCaught} / ${scoreB.totalRisky} risky</p>
-          <p><strong>Wrong blocks:</strong> ${scoreB.wronglyBlocked} / ${scoreB.totalNormal} normal</p>
-          <p><strong>Speed:</strong> ${scoreB.avgSecondsPerDecision}s / decision</p>
-          <p><strong>Result:</strong> ${escapeHtml(scoreB.overallRating)}</p>
+          <div class="stats">
+            <div class="stat"><span class="stat-num">${scoreB.riskyCaught} of ${scoreB.totalRisky}</span><span class="stat-label">Risky caught</span></div>
+            <div class="stat"><span class="stat-num">${scoreB.wronglyBlocked} of ${scoreB.totalNormal}</span><span class="stat-label">Wrongly blocked</span></div>
+            <div class="stat"><span class="stat-num">${scoreB.avgSecondsPerDecision}s</span><span class="stat-label">Per decision</span></div>
+          </div>
+          <p class="score-rating">Result: ${escapeHtml(scoreB.overallRating)}</p>
         </div>
       </div>
 
@@ -495,14 +497,14 @@
       <p class="lead-text">For any team whose developers use coding agents. The team report is what a security lead gets.</p>
 
       <div class="thumb-actions">
-        <a href="/team" class="btn-large btn-primary" style="text-decoration: none;" aria-label="View Team Results">
-          📊 View Team Results
+        <a href="/team" class="btn-large btn-primary" aria-label="View Team Results">
+          View team results
         </a>
-        <a href="/how" class="btn-large btn-primary" style="text-decoration: none;" aria-label="How it works">
-          ⚙️ How it works
+        <a href="/how" class="btn-large" aria-label="How it works">
+          How it works
         </a>
-        <button id="restartBtn" class="btn-large btn-primary" style="background: #475569; border-color: #334155;" aria-label="Play Again">
-          🔄 Play Again
+        <button id="restartBtn" class="btn-large" aria-label="Play Again">
+          Play again
         </button>
       </div>
     `;
@@ -519,7 +521,7 @@
     return `
       <div class="explain-block">
         <button class="btn-explain" data-card="${escapeHtml(cardId)}" aria-label="Explain this request with Gemini, live">
-          ✨ Explain with Gemini (live)
+          Explain with Gemini (live)
         </button>
         <div class="explain-out" aria-live="polite"></div>
       </div>`;

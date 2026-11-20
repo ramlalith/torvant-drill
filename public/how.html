@@ -4,26 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>How Torvant Drill works</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/style.css">
-  <style>
-    .flow { display: grid; gap: 6px; margin: 12px 0; }
-    .flow-box { border: 2px solid #334155; border-radius: 10px; padding: 10px 12px; background: #fff; font-size: 18px; }
-    .flow-box small { display: block; font-size: 16px; color: #475569; }
-    .flow-box.lane-ahead { border-style: dashed; }
-    .flow-arrow { text-align: center; font-size: 20px; line-height: 1; color: #334155; }
-    .lane-label { font-weight: 800; font-size: 16px; text-transform: uppercase; letter-spacing: .04em; margin-top: 10px; }
-    .how-section { margin-top: 22px; }
-    .how-table { width: 100%; border-collapse: collapse; font-size: 17px; }
-    .how-table th, .how-table td { border-bottom: 2px solid #e2e8f0; padding: 8px 6px; text-align: left; vertical-align: top; }
-    .how-table th { font-size: 15px; text-transform: uppercase; color: #475569; }
-    .trace-line { font-family: ui-monospace, Menlo, monospace; font-size: 15px; border-bottom: 1px solid #e2e8f0; padding: 6px 0; word-break: break-word; }
-    .trace-line strong { font-family: inherit; }
-    .roles li, .limits li { font-size: 18px; margin: 6px 0; }
-    .footer-links { margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap; font-size: 18px; }
-  </style>
 </head>
 <body>
-  <main class="drill-container">
+  <header class="brand"><span class="brand-word">torvant</span><span class="brand-tag">Drill</span></header>
+  <main class="drill-container page-panel">
     <h1>How it works</h1>
     <p class="lead-text">Gemini builds the drill ahead of time. Code runs the play. A person decides. Nothing is ever run.</p>
     <noscript>
@@ -104,8 +92,8 @@
     </section>
 
     <nav class="footer-links" aria-label="Pages">
-      <a href="/">◀ Play the drill</a>
-      <a href="/team">📊 Team results</a>
+      <a href="/">Play the drill</a>
+      <a href="/team">Team results</a>
     </nav>
   </main>
 

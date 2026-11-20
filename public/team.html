@@ -4,168 +4,109 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
   <title>Team results</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/style.css">
-  <style>
-    .sample-badge {
-      display: inline-block;
-      background: #fef3c7;
-      color: #92400e;
-      border: 2px solid #f59e0b;
-      padding: 6px 14px;
-      border-radius: 8px;
-      font-weight: 800;
-      font-size: 19px;
-      margin-top: 8px;
-    }
-    .variant-card {
-      background: #ffffff;
-      border: 2px solid #cbd5e1;
-      border-radius: 12px;
-      padding: 16px;
-      margin-top: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .risk-type-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      border-bottom: 2px solid #e2e8f0;
-      font-size: 19px;
-    }
-    .risk-type-row:last-child {
-      border-bottom: none;
-    }
-    .stat-val {
-      font-weight: 800;
-      color: #0f172a;
-    }
-  </style>
 </head>
 <body>
-  <main class="drill-container" id="teamApp">
+  <header class="brand"><span class="brand-word">torvant</span><span class="brand-tag">Drill</span></header>
+  <main class="drill-container page-panel" id="teamApp">
     <h1>Team results</h1>
-    <p class="lead-text">This is the report a security lead gets after a drill.</p>
+    <p class="secondary">This is the report a security lead gets after a drill.</p>
 
-    <div id="loadingBox" class="info-note">
-      Loading latest team results...
-    </div>
+    <p id="loadingBox" class="secondary">Loading the latest team results.</p>
 
-    <div id="contentBox" style="display: none;">
-      <p class="lead-text" id="teamSentence" style="font-weight: 800;"></p>
-      <div id="sampleWarning" style="display: none; margin-bottom: 20px;">
-        <span class="sample-badge">⚠️ Small sample</span>
+    <div id="contentBox" hidden>
+      <p class="big-sentence" id="teamSentence"></p>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-num" id="playersCount">0</span><span class="stat-label">Players so far</span></div>
       </div>
+      <p id="sampleWarning" class="sample-note" hidden>Small sample</p>
 
-      <div class="score-highlight">
-        <div class="score-metric" id="playersCount">👥 Players so far: 0</div>
-      </div>
+      <h2>Plain card and Torvant card</h2>
+      <table class="data-table" aria-label="Card comparison">
+        <thead>
+          <tr><th scope="col">Measure</th><th scope="col" class="num">Plain card</th><th scope="col" class="num">Torvant card</th></tr>
+        </thead>
+        <tbody id="variantRows"></tbody>
+      </table>
 
-      <div style="margin-bottom: 28px;">
-        <h2>Card Variant Comparison</h2>
-        <p style="margin-bottom: 14px; font-size: 18px;">Plain card vs Torvant card (risk analysis shown)</p>
-        <div class="comparison-grid" id="variantsContainer">
-          <div class="round-card" id="plainCol">
-            <h3>Plain card</h3>
-            <p class="info-note" style="font-size: 18px;">No data yet.</p>
-          </div>
-          <div class="round-card" id="torvantCol">
-            <h3>Torvant card</h3>
-            <p class="info-note" style="font-size: 18px;">No data yet.</p>
-          </div>
-        </div>
-      </div>
+      <h2>What players told us</h2>
+      <p class="sample-note">Self reported, small sample</p>
+      <div id="toldContainer"></div>
 
-      <div style="margin-bottom: 28px;">
-        <h2>What players told us</h2>
-        <p style="margin-bottom: 12px;"><span class="sample-badge">Self reported, small sample</span></p>
-        <div id="toldContainer" style="background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;"></div>
-      </div>
-
-      <div style="margin-bottom: 28px;">
-        <h2>Risk Type Approvals</h2>
-        <p style="margin-bottom: 12px;">How often each planted risk type was mistakenly approved:</p>
-        <div id="riskTypesContainer" style="background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;"></div>
-      </div>
+      <h2>Risk type approvals</h2>
+      <p class="secondary">How often each planted risk type was approved by mistake.</p>
+      <div id="riskTypesContainer"></div>
 
       <div class="thumb-actions">
-        <a href="/" class="btn-large btn-primary" style="text-decoration: none;" aria-label="Back to Torvant Drill">
-          ◀ Back to Drill
-        </a>
+        <a href="/" class="btn-large" aria-label="Back to Torvant Drill">Back to the drill</a>
       </div>
     </div>
   </main>
-  <nav class="site-footer" aria-label="Pages"><a href="/">Play the drill</a> · <a href="/how">How it works</a></nav>
+  <nav class="site-footer" aria-label="Pages"><a href="/">Play the drill</a><a href="/how">How it works</a></nav>
 
   <script>
+    function esc(t) {
+      return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c];
+      });
+    }
+
     async function fetchTeamResults() {
       try {
         const res = await fetch('/api/team/results');
         const data = await res.json();
 
-        document.getElementById('loadingBox').style.display = 'none';
-        document.getElementById('contentBox').style.display = 'block';
+        document.getElementById('loadingBox').hidden = true;
+        document.getElementById('contentBox').hidden = false;
 
         // One sentence worked out by the server code
         document.getElementById('teamSentence').textContent = data.summary_sentence || '';
+
+        // Players count and small sample note
+        document.getElementById('playersCount').textContent = data.total_players;
+        document.getElementById('sampleWarning').hidden = !data.is_small_sample;
+
+        // Plain card and Torvant card, one row per measure
+        const plain = data.variants ? data.variants.find(v => v.card_variant === 'plain') : null;
+        const torvant = data.variants ? data.variants.find(v => v.card_variant === 'torvant') : null;
+        const cell = (v, f) => v ? f(v) : 'No data yet';
+        const rows = [
+          ['Risky requests caught', v => `${v.risky_caught_pct}% (${v.risky_caught} of ${v.risky_reached})`],
+          ['Normal requests wrongly blocked', v => `${v.normal_blocked_pct}% (${v.normal_wrongly_blocked} of ${v.normal_reached})`],
+          ['Median seconds per decision', v => `${v.median_seconds}s`]
+        ];
+        document.getElementById('variantRows').innerHTML = rows.map(([label, f]) =>
+          `<tr><td>${esc(label)}</td><td class="num">${esc(cell(plain, f))}</td><td class="num">${esc(cell(torvant, f))}</td></tr>`
+        ).join('');
 
         // What players told us (answers table)
         const told = data.what_players_told_us;
         const toldEl = document.getElementById('toldContainer');
         if (!told || !told.total) {
-          toldEl.innerHTML = '<div class="info-note" style="border: none;">No answers yet.</div>';
+          toldEl.innerHTML = '<p class="secondary">No answers yet.</p>';
         } else {
-          const block = (title, counts) => `<div class="risk-type-row" style="display:block;"><strong>${title}</strong>` +
-            Object.entries(counts).map(([k, n]) => `<div style="display:flex;justify-content:space-between;"><span>${k}</span><span class="stat-val">${n}</span></div>`).join('') + '</div>';
-          toldEl.innerHTML = block('Agent requests approved on a normal work day', told.approvals_per_day) +
-            block('How many of them they read fully', told.read_share) +
-            `<div class="risk-type-row">Answers so far: <span class="stat-val">${told.total}</span></div>`;
+          const table = (title, counts) => `<table class="data-table" aria-label="${esc(title)}"><thead><tr><th scope="col">${esc(title)}</th><th scope="col" class="num">Answers</th></tr></thead><tbody>` +
+            Object.entries(counts).map(([k, n]) => `<tr><td>${esc(k)}</td><td class="num">${esc(n)}</td></tr>`).join('') + '</tbody></table>';
+          toldEl.innerHTML = table('Agent requests approved on a normal work day', told.approvals_per_day) +
+            table('How many of them they read fully', told.read_share) +
+            `<p class="secondary">Answers so far: <span class="num">${esc(told.total)}</span></p>`;
         }
 
-        // Players count
-        document.getElementById('playersCount').textContent = `👥 Players so far: ${data.total_players}`;
-
-        // Small sample note
-        if (data.is_small_sample) {
-          document.getElementById('sampleWarning').style.display = 'block';
-        }
-
-        // Render card variants as plain vs torvant side-by-side
-        function renderVariantCol(colId, label, v) {
-          const el = document.getElementById(colId);
-          if (!v) {
-            el.innerHTML = `<h3>${label}</h3><p class="info-note" style="font-size:18px;">No data yet.</p>`;
-            return;
-          }
-          el.innerHTML = `
-            <h3>${label}</h3>
-            <p><strong>Risky caught:</strong> <span class="stat-val">${v.risky_caught_pct}%</span> (${v.risky_caught} of ${v.risky_reached} reached)</p>
-            <p><strong>Normal wrongly blocked:</strong> <span class="stat-val">${v.normal_blocked_pct}%</span> (${v.normal_wrongly_blocked} of ${v.normal_reached} reached)</p>
-            <p><strong>Median decision time:</strong> <span class="stat-val">${v.median_seconds}s</span></p>
-          `;
-        }
-
-        const plainData = data.variants ? data.variants.find(v => v.card_variant === 'plain') : null;
-        const torvantData = data.variants ? data.variants.find(v => v.card_variant === 'torvant') : null;
-        renderVariantCol('plainCol', 'Plain card', plainData);
-        renderVariantCol('torvantCol', 'Torvant card', torvantData);
-
-        // Render risk types
-        const riskTypesContainer = document.getElementById('riskTypesContainer');
+        // Risk types
+        const riskEl = document.getElementById('riskTypesContainer');
         if (!data.risk_types || data.risk_types.length === 0) {
-          riskTypesContainer.innerHTML = '<div class="info-note" style="border: none;">No risky decisions recorded yet.</div>';
+          riskEl.innerHTML = '<p class="secondary">No risky decisions recorded yet.</p>';
         } else {
-          riskTypesContainer.innerHTML = data.risk_types.map(r => `
-            <div class="risk-type-row">
-              <div><strong>${r.risk_type}</strong></div>
-              <div><span class="stat-val">${r.approved_pct}% approved</span> (${r.approved_count} of ${r.total_reached})</div>
-            </div>
-          `).join('');
+          riskEl.innerHTML = '<table class="data-table" aria-label="Risk type approvals"><thead><tr><th scope="col">Risk type</th><th scope="col" class="num">Approved</th></tr></thead><tbody>' +
+            data.risk_types.map(r => `<tr><td>${esc(r.risk_type)}</td><td class="num">${esc(r.approved_pct)}% (${esc(r.approved_count)} of ${esc(r.total_reached)})</td></tr>`).join('') +
+            '</tbody></table>';
         }
       } catch (err) {
-        document.getElementById('loadingBox').innerHTML = '<strong>Error loading team results:</strong> ' + err.message;
+        document.getElementById('loadingBox').textContent = 'Team results could not load: ' + err.message;
       }
     }
 
