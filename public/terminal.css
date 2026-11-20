@@ -143,3 +143,19 @@ body.term .q-text { color: var(--t-text); }
 body.term .q-opt { background: var(--t-window); color: var(--t-text); border: 1px solid var(--t-edge); border-radius: 6px; }
 body.term .q-opt[aria-pressed="true"] { background: #1f4fbf; color: #ffffff; border-color: #6d8fd6; }
 body.term .site-footer { color: var(--t-soft); }
+
+/* Step 11: feedback. Static states only, no animation. */
+body.term .badge-progress { color: var(--t-text); font-size: 18px; }
+body.term .progress-bar { color: var(--t-accent); letter-spacing: 1px; margin-left: 6px; }
+.term-history div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Pressed: clearly darker with an inset edge. Hover on desktop: slightly darker. */
+body.term .btn-deny:hover { background: #991b1b; }
+body.term .btn-approve:hover { background: #166534; }
+body.term .btn-primary:hover { background: #1a43a3; }
+body.term .btn-deny:active { background: #6b1111; border-color: #ffb4b4; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
+body.term .btn-approve:active { background: #0c4a23; border-color: #b7f0cc; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
+body.term .btn-primary:active { background: #12306f; border-color: #cddcff; box-shadow: inset 0 4px 0 rgba(0, 0, 0, 0.5); }
+
+/* Visible focus ring for keyboard users */
+body.term button:focus-visible, body.term a:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }

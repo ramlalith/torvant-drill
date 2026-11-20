@@ -30,6 +30,9 @@
     return variant === "torvant" ? "Torvant card" : "Plain card (how agents ask today)";
   }
 
+  // One tap answers one card (see play_helpers.js).
+  const tapGuard = PlayHelpers.createTapGuard(300, () => performance.now());
+
   // DOM Container
   const container = document.getElementById("app");
 
@@ -219,22 +222,26 @@
 
     const card = currentCards[currentCardIndex];
     const roundName = drillData[currentRoundKey].name || currentRoundKey;
-    const progressText = `${currentCardIndex + 1} of ${currentCards.length}`;
+    const progressText = PlayHelpers.progressText(currentCardIndex + 1, currentCards.length);
+    const progressBar = PlayHelpers.progressBar(currentCardIndex + 1, currentCards.length);
     const torvantSection = currentCardVariant === "torvant" ? buildTorvantSection(card) : "";
+    const commandOf = (id) => (currentCards.find((c) => c.id === id) || {}).command || "";
+    const history = PlayHelpers.historyLines(
+      roundDecisions.slice(-2).map((d) => ({ decision: d.decision, command: commandOf(d.cardId) }))
+    );
 
     container.innerHTML = `
       <div class="status-bar">
-        <span class="badge-progress" aria-label="Progress: Request ${progressText} in ${roundName}">
-          ${roundName}: ${progressText}
+        <span class="badge-progress" aria-label="Progress: ${progressText} in ${escapeHtml(roundName)}">
+          ${progressText} <span class="progress-bar" aria-hidden="true">${progressBar}</span>
         </span>
         <span id="roundTimer" class="badge-timer ${roundSecondsLeft <= 15 ? 'urgent' : ''}" aria-label="Time remaining: ${roundSecondsLeft} seconds">
           ⏱ ${roundSecondsLeft}s
         </span>
       </div>
 
-      <div class="term-history" aria-hidden="true">
-        <div>&gt; list_files  (8 files)</div>
-        <div>&gt; read_file  deploy/README.md</div>
+      <div class="term-history" aria-label="Your last answers">
+        ${history.map((line) => `<div>${escapeHtml(line)}</div>`).join("")}
       </div>
 
       <div class="request-card">
@@ -261,14 +268,21 @@
       </div>
     `;
 
-    document.getElementById("denyBtn").addEventListener("click", () => handleDecision("denied"));
+    document.getElementById("denyBtn").addEventListener("click", () => {
+      if (tapGuard.tryTake()) handleDecision("denied");
+    });
     document.getElementById("approveBtn").addEventListener("click", () => {
+      if (!tapGuard.tryTake()) return;
       if (currentCardVariant === "torvant" && card.level === "high") {
         renderHighConfirm();
       } else {
         handleDecision("approved");
       }
     });
+
+    // Every new card starts at the top, and taps are locked for its first moment.
+    window.scrollTo(0, 0);
+    tapGuard.cardShown();
 
     // Timing fix: start round clock and per-card timer ONLY after the first card is shown in the DOM
     cardStartTime = performance.now();
@@ -293,7 +307,10 @@
       renderPlayScreen();
       cardStartTime = keep;
     });
-    document.getElementById("confirmApproveBtn").addEventListener("click", () => handleDecision("approved"));
+    document.getElementById("confirmApproveBtn").addEventListener("click", () => {
+      if (tapGuard.tryTake()) handleDecision("approved");
+    });
+    tapGuard.cardShown();
   }
 
   function handleDecision(decision) {
