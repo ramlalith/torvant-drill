@@ -52,7 +52,7 @@ export function buildHow(queueId?: string) {
   }
   if (cardText || queues.length) {
     const models = new Set([cardText?.model, ...queues.map((q) => q.model)].filter(Boolean));
-    rows.push({ tool: `Gemini (${[...models].join(", ")})`, job: "Writes the Torvant card text as checked, schema-bound data. Code sets the risk level; Gemini may only raise it", evidence: `${Object.keys(cardText?.cards || {}).length + queues.reduce((n, q) => n + Object.keys(q.card_text).length, 0)} cards written ahead of time` });
+    rows.push({ tool: `Gemini (${[...models].join(", ")})`, job: "Writes the Torvant card text as checked, schema-bound data. Rules set the lowest level. Gemini can raise it, never lower it.", evidence: `${Object.keys(cardText?.cards || {}).length + queues.reduce((n, q) => n + Object.keys(q.card_text).length, 0)} cards written ahead of time` });
   }
   const adk = adkVersion();
   if (adk && queues.length) {

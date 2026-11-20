@@ -7,6 +7,8 @@ import { StoredCardText } from "./card_text";
 import { RiskLevel, risk_flags } from "./risk_rules";
 import { Card } from "./types";
 
+const LEVEL_RANK: Record<RiskLevel, number> = { low: 0, medium: 1, high: 2 };
+
 export const CARD_TEXT_PATH = path.resolve(process.cwd(), "data/card_text.json");
 
 export interface CardTextFile {
@@ -62,8 +64,10 @@ export function toPublicCard(card: Card, stored: StoredCardText | undefined): Pu
     id: card.id,
     task: card.task,
     command: card.command,
-    // Stored level is already the higher of code and Gemini; fall back to code.
-    level: stored ? stored.risk_level : rules.level,
+    // Rules set the lowest level. Gemini can raise it, never lower it.
+    // The shown level is the higher of today's rules and the stored level, so
+    // a stored text written before a rule change can never show a lower level.
+    level: stored && LEVEL_RANK[stored.risk_level] > LEVEL_RANK[rules.level] ? stored.risk_level : rules.level,
     flags: rules.flags,
     text: stored
       ? {

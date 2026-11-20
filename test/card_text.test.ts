@@ -95,3 +95,13 @@ describe("Fix 4: live explain never contradicts the stored card", () => {
     assert.strictEqual(combineExplanation(undefined, live).risk_level, "medium");
   });
 });
+
+describe("Step 9: rules set the lowest level", () => {
+  it("never shows a level below today's rules, even from older stored text", () => {
+    const card = { id: "X1", task: "Ship the fix today", command: "git push --force origin main", isRisky: true };
+    const staleLow = { ...good, risk_level: "low", rules_level: "low", rules_flags: [], model_level: "low", model: "m", time: "" } as any;
+    assert.strictEqual(toPublicCard(card, staleLow).level, "high");
+    const raised = { ...staleLow, risk_level: "high" };
+    assert.strictEqual(toPublicCard({ ...card, command: "npm test" }, raised).level, "high", "Gemini's raise is kept");
+  });
+});

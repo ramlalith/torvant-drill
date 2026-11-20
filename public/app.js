@@ -88,15 +88,7 @@
       <h1>Torvant Drill</h1>
       <p class="lead-text">You are the developer on duty at Kaveri Retail, a made up store. Your coding agent asks you before each action. One wrong tap can open customer data to the internet.</p>
       
-      <div class="info-note">
-        <strong>Drill Details:</strong><br>
-        8 requests, about 75 seconds.<br>
-        Some requests are planted tests.<br>
-        Nothing here is ever run.<br>
-        No names are stored.<br>
-        <br>
-        <em>Your Session ID: ${playerId}</em>
-      </div>
+      <div class="info-note">8 requests, about 75 seconds. Some are planted tests. Nothing here is ever run. No names are stored.</div>
       <p class="info-note">One round shows requests the way agents ask today. If the commands are hard to read, that is the point.</p>
 
       <div class="thumb-actions">
@@ -188,7 +180,7 @@
   }
 
   // Build the Torvant card: risk level, what it does, fits the task, reach, touches, undo.
-  // Code sets the level. Gemini wrote the words ahead of time (stored, no live call here).
+  // Rules set the lowest level. Gemini can raise it, never lower it. Gemini wrote the words ahead of time (stored, no live call here).
   function buildTorvantSection(card) {
     const level = card.level || "low";
     const t = card.text;
