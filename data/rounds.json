@@ -1,0 +1,10 @@
+{
+  "roundA": {
+    "name": "Round A",
+    "cardIds": ["N1", "N3", "N4", "R2", "N5", "N7", "R5", "N9"]
+  },
+  "roundB": {
+    "name": "Round B",
+    "cardIds": ["N2", "N6", "N8", "R1", "N10", "N11", "R3", "N12"]
+  }
+}

@@ -9,9 +9,12 @@ COPY tsconfig.json ./
 RUN npm install
 
 COPY src ./src
+COPY test ./test
+COPY data ./data
 COPY public ./public
 
 RUN npm run build
+RUN npm test
 
 # Stage 2: Production runner
 FROM node:20-alpine
@@ -26,8 +29,9 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/data ./data
 COPY --from=builder /app/public ./public
 
 EXPOSE 8080
 
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]
