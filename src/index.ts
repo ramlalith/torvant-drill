@@ -5,6 +5,7 @@ import express, { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
+import { risk_flags } from "./risk_rules";
 import { calculateRoundScore } from "./scoring";
 import { Card, DecisionRecord, DrillRoundsData } from "./types";
 
@@ -12,8 +13,10 @@ const app = express();
 const port = parseInt(process.env.PORT || "8080", 10);
 const geminiModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
+// Serve static files from public/ and data/ directories
 app.use(express.json());
 app.use(express.static(path.resolve(process.cwd(), "public")));
+app.use("/data", express.static(path.resolve(process.cwd(), "data")));
 
 // Load drill cards and rounds from data directory
 function loadDrillData(): DrillRoundsData {
@@ -53,11 +56,30 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
 
-// API to retrieve drill rounds
+// API to retrieve drill rounds (cards enriched with riskAnalysis for Torvant card screen)
 app.get("/api/drill/rounds", (_req: Request, res: Response) => {
   try {
     const drillData = loadDrillData();
-    res.json(drillData);
+
+    // Enrich each card with riskAnalysis (pure function, no AI)
+    const enriched: DrillRoundsData = {
+      roundA: {
+        name: drillData.roundA.name,
+        cards: drillData.roundA.cards.map((c) => ({
+          ...c,
+          riskAnalysis: risk_flags(c.task, c.command)
+        }))
+      },
+      roundB: {
+        name: drillData.roundB.name,
+        cards: drillData.roundB.cards.map((c) => ({
+          ...c,
+          riskAnalysis: risk_flags(c.task, c.command)
+        }))
+      }
+    };
+
+    res.json(enriched);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error loading drill data";
     res.status(500).json({ error: message });

@@ -142,5 +142,21 @@ describe("Risk Flags and Levels Evaluation Rules", () => {
     // Unsafe shortcut
     assert(risk_flags("task", "git push --force origin main").flags.includes("unsafe shortcut"));
     assert(risk_flags("task", "git commit --no-verify").flags.includes("unsafe shortcut"));
+
+    // "prod" must NOT match inside "products" — DROP TABLE products_old on staging → medium (destructive, not production)
+    const productsOld = risk_flags("task", 'psql $STAGING_DB -c "DROP TABLE products_old"');
+    assert(
+      !productsOld.flags.includes("production target"),
+      `"products_old" must NOT trigger production target, got flags: ${productsOld.flags.join(", ")}`
+    );
+    assert(
+      productsOld.flags.includes("destructive"),
+      `"DROP TABLE products_old" must flag destructive`
+    );
+    assert.strictEqual(
+      productsOld.level,
+      "medium",
+      `"DROP TABLE products_old" on staging must come out medium, got ${productsOld.level}`
+    );
   });
 });

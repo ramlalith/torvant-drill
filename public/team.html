@@ -63,8 +63,18 @@
       </div>
 
       <div style="margin-bottom: 28px;">
-        <h2>Card Variant Performance</h2>
-        <div id="variantsContainer"></div>
+        <h2>Card Variant Comparison</h2>
+        <p style="margin-bottom: 14px; font-size: 18px;">Plain card vs Torvant card (risk analysis shown)</p>
+        <div class="comparison-grid" id="variantsContainer">
+          <div class="round-card" id="plainCol">
+            <h3>Plain card</h3>
+            <p class="info-note" style="font-size: 18px;">No data yet.</p>
+          </div>
+          <div class="round-card" id="torvantCol">
+            <h3>Torvant card</h3>
+            <p class="info-note" style="font-size: 18px;">No data yet.</p>
+          </div>
+        </div>
       </div>
 
       <div style="margin-bottom: 28px;">
@@ -98,20 +108,25 @@
           document.getElementById('sampleWarning').style.display = 'block';
         }
 
-        // Render card variants
-        const variantsContainer = document.getElementById('variantsContainer');
-        if (!data.variants || data.variants.length === 0) {
-          variantsContainer.innerHTML = '<div class="info-note">No card variant data recorded yet.</div>';
-        } else {
-          variantsContainer.innerHTML = data.variants.map(v => `
-            <div class="variant-card">
-              <h3>Variant: <code>${v.card_variant}</code></h3>
-              <div><strong>Risky caught:</strong> <span class="stat-val">${v.risky_caught_pct}%</span> (${v.risky_caught} of ${v.risky_reached} reached)</div>
-              <div><strong>Normal wrongly blocked:</strong> <span class="stat-val">${v.normal_blocked_pct}%</span> (${v.normal_wrongly_blocked} of ${v.normal_reached} reached)</div>
-              <div><strong>Median decision time:</strong> <span class="stat-val">${v.median_seconds}s</span></div>
-            </div>
-          `).join('');
+        // Render card variants as plain vs torvant side-by-side
+        function renderVariantCol(colId, label, v) {
+          const el = document.getElementById(colId);
+          if (!v) {
+            el.innerHTML = `<h3>${label}</h3><p class="info-note" style="font-size:18px;">No data yet.</p>`;
+            return;
+          }
+          el.innerHTML = `
+            <h3>${label}</h3>
+            <p><strong>Risky caught:</strong> <span class="stat-val">${v.risky_caught_pct}%</span> (${v.risky_caught} of ${v.risky_reached} reached)</p>
+            <p><strong>Normal wrongly blocked:</strong> <span class="stat-val">${v.normal_blocked_pct}%</span> (${v.normal_wrongly_blocked} of ${v.normal_reached} reached)</p>
+            <p><strong>Median decision time:</strong> <span class="stat-val">${v.median_seconds}s</span></p>
+          `;
         }
+
+        const plainData = data.variants ? data.variants.find(v => v.card_variant === 'plain') : null;
+        const torvantData = data.variants ? data.variants.find(v => v.card_variant === 'torvant') : null;
+        renderVariantCol('plainCol', 'Plain card', plainData);
+        renderVariantCol('torvantCol', 'Torvant card', torvantData);
 
         // Render risk types
         const riskTypesContainer = document.getElementById('riskTypesContainer');

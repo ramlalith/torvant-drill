@@ -4,7 +4,11 @@
   const playerId = "drill-" + Math.random().toString(36).substring(2, 10);
   const playId = "play-" + Date.now().toString(36) + "-" + Math.random().toString(36).substring(2, 6);
 
+  // Randomly assign card variant for this session (50/50)
+  const cardVariant = Math.random() < 0.5 ? "plain" : "torvant";
+
   let drillData = null;
+  let cardTextMap = {}; // keyed by card_id, populated from data/card_text.json if available
   let currentRoundKey = "roundA"; // 'roundA' then 'roundB'
   let currentCardIndex = 0;
   let currentCards = [];
@@ -19,6 +23,18 @@
   // DOM Container
   const container = document.getElementById("app");
 
+  // Fisher-Yates shuffle (returns a new array, does not mutate)
+  function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = a[i];
+      a[i] = a[j];
+      a[j] = tmp;
+    }
+    return a;
+  }
+
   // Format decision text with symbol (never color alone)
   function formatChoice(decision) {
     if (decision === "denied") {
@@ -30,6 +46,13 @@
     return "⏳ Not Reached (Time Expired)";
   }
 
+  // Map risk level to a human-readable badge label (text + symbol, never color alone)
+  function riskLevelLabel(level) {
+    if (level === "high") return "⛔ HIGH RISK";
+    if (level === "medium") return "⚠️ MEDIUM RISK";
+    return "ℹ️ LOW RISK";
+  }
+
   // Asynchronously record decision to BigQuery endpoint (non-blocking)
   function postDecisionToBigQuery(card, decision, seconds, reached, queueIndex) {
     const payload = {
@@ -37,7 +60,7 @@
       player_id: playerId,
       ts: new Date().toISOString(),
       round: drillData && drillData[currentRoundKey] ? drillData[currentRoundKey].name : currentRoundKey,
-      card_variant: "plain",
+      card_variant: cardVariant,
       queue_id: String(queueIndex + 1),
       card_id: card.id,
       risky: Boolean(card.isRisky),
@@ -86,7 +109,7 @@
     document.getElementById("startBtn").addEventListener("click", startDrill);
   }
 
-  // Load drill data from server
+  // Load drill data and card_text.json from server
   async function startDrill() {
     try {
       container.innerHTML = `<p class="lead-text">Loading drill requests...</p>`;
@@ -95,6 +118,17 @@
         throw new Error("Failed to load drill data from server.");
       }
       drillData = await res.json();
+
+      // Try to load card_text.json (gracefully ignore 404 or parse errors)
+      try {
+        const ctRes = await fetch("/data/card_text.json");
+        if (ctRes.ok) {
+          cardTextMap = await ctRes.json();
+        }
+      } catch (_) {
+        cardTextMap = {};
+      }
+
       currentRoundKey = "roundA";
       startRound(currentRoundKey);
     } catch (err) {
@@ -110,14 +144,15 @@
     }
   }
 
-  // Prepare a specific round (does NOT start timers until first card is shown)
+  // Prepare a specific round (shuffles cards, does NOT start timers until first card is shown)
   function startRound(roundKey) {
     if (roundTimer) {
       clearInterval(roundTimer);
       roundTimer = null;
     }
     currentRoundKey = roundKey;
-    currentCards = drillData[roundKey].cards;
+    // Shuffle the round's cards for random order
+    currentCards = shuffleArray(drillData[roundKey].cards);
     currentCardIndex = 0;
     roundDecisions = [];
     roundSecondsLeft = 75;
@@ -167,6 +202,30 @@
     await finishRound();
   }
 
+  // Build the Torvant card section (risk badge + card text or placeholder)
+  function buildTorvantSection(card) {
+    const analysis = card.riskAnalysis || { flags: [], level: "low" };
+    const levelLabel = riskLevelLabel(analysis.level);
+    const cardText = cardTextMap && cardTextMap[card.id]
+      ? escapeHtml(cardTextMap[card.id])
+      : "Card text not generated yet";
+    const flagsText = analysis.flags.length > 0
+      ? analysis.flags.map(f => escapeHtml(f)).join(", ")
+      : "none";
+
+    return `
+      <div class="torvant-panel" aria-label="Torvant risk analysis panel">
+        <div class="torvant-level" aria-label="Risk level: ${analysis.level}">
+          ${levelLabel}
+        </div>
+        <div class="torvant-flags" aria-label="Risk flags: ${flagsText}">
+          <strong>Flags:</strong> ${flagsText}
+        </div>
+        <div class="torvant-text">${cardText}</div>
+      </div>
+    `;
+  }
+
   // Screen 2: Play Screen
   function renderPlayScreen() {
     if (currentCardIndex >= currentCards.length) {
@@ -181,6 +240,8 @@
     const card = currentCards[currentCardIndex];
     const roundName = drillData[currentRoundKey].name || currentRoundKey;
     const progressText = `${currentCardIndex + 1} of ${currentCards.length}`;
+
+    const torvantSection = cardVariant === "torvant" ? buildTorvantSection(card) : "";
 
     container.innerHTML = `
       <div class="status-bar">
@@ -202,6 +263,8 @@
           <div class="label-title">The agent wants to run</div>
           <pre class="command-box"><code>${escapeHtml(card.command)}</code></pre>
         </div>
+
+        ${torvantSection}
       </div>
 
       <div class="thumb-actions">
@@ -344,7 +407,7 @@
   // Screen 4: After Round Two - Comparison Side by Side with Link to /team
   function renderComparisonScreen() {
     container.innerHTML = `
-      <h2>Drill Summary: Round A & Round B</h2>
+      <h2>Drill Summary: Round A &amp; Round B</h2>
       <p class="lead-text">Session ID: ${playerId}</p>
 
       <div class="comparison-grid">

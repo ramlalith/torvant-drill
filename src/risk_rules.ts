@@ -18,19 +18,50 @@ function loadStorePackages(): string[] {
 }
 
 /**
+ * Returns true if the command contains "prod" as its own word or name part.
+ * Matches: prod, PROD_DB, kaveri-prod, prod-db, $PROD
+ * Does NOT match: products, production (unless followed by a separator)
+ *
+ * Rule: "prod" must be:
+ * - preceded by a word boundary or start of string, $, or a separator (-, _)
+ * - followed by a word boundary, end of string, or a separator (-, _, letters/digits
+ *   that are not purely alphabetic continuation that forms a longer word)
+ *
+ * Specifically we DON'T match "prod" when immediately followed by a letter that
+ * makes it part of a longer natural English word (products, production, etc.)
+ * We DO match when "prod" is followed by end, separator, digit, or uppercase letter.
+ */
+function containsProdToken(command: string): boolean {
+  // Split on whitespace and common separators to get individual tokens
+  const tokens = command.split(/[\s"'`=,;()[\]{}]+/);
+  for (const token of tokens) {
+    // Strip leading $ (env var prefix)
+    const stripped = token.replace(/^\$/, "");
+    // Split each token on separators (- _) to get parts
+    const parts = stripped.split(/[-_]/);
+    for (const part of parts) {
+      // "prod" matches if the part is exactly "prod" (case-insensitive)
+      // or starts with "prod" followed only by digits (e.g. prod1, prod123)
+      // but NOT if followed by letters (which would make "products", "production", etc.)
+      if (/^prod\d*$/i.test(part)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Pure code risk evaluator. No AI model.
  * Evaluates a task and command against safety rules and returns flags and level.
  */
 export function risk_flags(task: string, command: string): RiskAnalysis {
   const flags: string[] = [];
-  const lowerCommand = command.toLowerCase();
-  const lowerTask = task.toLowerCase();
 
   // 1. Production target:
-  // Names something with "prod" in it, in any upper or lower case (e.g. $PROD_DB, kaveri-prod)
-  const isProductionTarget = /(?:^|[^a-zA-Z0-9])(?:[a-zA-Z0-9_\-\$]*prod[a-zA-Z0-9_\-\$]*)(?:[^a-zA-Z0-9]|$)/i.test(
-    command
-  );
+  // "prod" only as its own word or name part (prod, PROD_DB, kaveri-prod, prod-db)
+  // Does NOT match inside "products", "production", etc.
+  const isProductionTarget = containsProdToken(command);
   if (isProductionTarget) {
     flags.push("production target");
   }
@@ -51,7 +82,6 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
     isDestructive = true;
   } else if (/\brm\s+(-[a-zA-Z]*r[a-zA-Z]*|--recursive)\b/i.test(command)) {
     // Check if targeting only build folders (dist, build, ./dist, ./build)
-    // Strip command flags and check remaining paths
     const args = command
       .replace(/rm\s+(-[a-zA-Z0-9\-_]+\s+)*/g, "")
       .trim()
@@ -107,7 +137,7 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
   }
 
   // 6. Unsafe shortcut:
-  // Force push to main or master, skipping checks or tests (for example --no-verify)
+  // Force push to main or master, skipping checks or tests (--no-verify)
   const isForcePushMain =
     /\bgit\s+push\b.*(-f\b|--force\b).*\b(main|master)\b/i.test(command) ||
     /\bgit\s+push\b.*\b(main|master)\b.*(-f\b|--force\b)/i.test(command);
@@ -118,8 +148,7 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
   }
 
   // 7. Unknown software:
-  // Installing a package that is not in the made up store app's package list
-  // data/store_packages.json: react, express, pg, jest, prettier
+  // Installing a package not in data/store_packages.json
   const storePackages = new Set(
     loadStorePackages().map((p) => p.trim().toLowerCase())
   );
@@ -131,10 +160,9 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
     const rawTokens = installMatch[1]
       .split(/\s+/)
       .map((t) => t.trim())
-      .filter((t) => t && !t.startsWith("-")); // omit flags like --save-dev, -D
+      .filter((t) => t && !t.startsWith("-"));
 
     for (const pkg of rawTokens) {
-      // Remove version specifiers e.g. pkg@1.0.0
       const basePkg = pkg.split("@")[0].toLowerCase();
       if (basePkg && !storePackages.has(basePkg)) {
         flags.push("unknown software");
@@ -145,16 +173,13 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
 
   // Determine Level:
   // High: exposure, secrets leaving, owner rights, a force push to main,
-  // or anything destructive on a production target.
-  // Medium: unknown software or destructive on staging.
+  //       or anything destructive on a production target.
+  // Medium: unknown software or destructive (on staging or otherwise without production).
   // Low: otherwise.
   let level: "low" | "medium" | "high" = "low";
 
   const isDestructiveOnProduction =
     flags.includes("destructive") && flags.includes("production target");
-  const isDestructiveOnStaging =
-    flags.includes("destructive") &&
-    (/staging/i.test(command) || /staging/i.test(task));
 
   if (
     flags.includes("exposure") ||
@@ -164,7 +189,7 @@ export function risk_flags(task: string, command: string): RiskAnalysis {
     isDestructiveOnProduction
   ) {
     level = "high";
-  } else if (flags.includes("unknown software") || isDestructiveOnStaging) {
+  } else if (flags.includes("unknown software") || flags.includes("destructive")) {
     level = "medium";
   } else if (flags.length > 0) {
     level = "medium";
