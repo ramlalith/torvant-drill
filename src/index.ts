@@ -6,6 +6,8 @@ import path from "path";
 import { DecisionRow, enqueueDecision, getTeamResults } from "./bigquery";
 import { combineExplanation, generateCardText } from "./card_text";
 import { loadCardText, toPublicCard } from "./cards_store";
+import { teamSentence, toAnswerRow } from "./answers";
+import { enqueueAnswer, getAnswerCounts } from "./answers_store";
 import { buildHow } from "./how";
 import { findCard, pickRounds, roundByKey } from "./queues";
 import { risk_flags } from "./risk_rules";
@@ -81,6 +83,13 @@ app.post("/api/drill/decision", (req: Request, res: Response) => {
   });
 });
 
+// Optional answers from the final summary. Responds at once; the write never blocks the screen.
+app.post("/api/answers", (req: Request, res: Response) => {
+  res.status(200).json({ status: "queued" });
+  const row = toAnswerRow(req.body);
+  if (row) enqueueAnswer(row);
+});
+
 app.post("/api/drill/score", (req: Request, res: Response) => {
   try {
     const { roundKey, decisions } = req.body as { roundKey: string; decisions: DecisionRecord[] };
@@ -128,7 +137,9 @@ app.post("/api/explain", async (req: Request, res: Response) => {
 
 app.get("/api/team/results", async (_req: Request, res: Response) => {
   try {
-    res.json(await getTeamResults());
+    const results = await getTeamResults();
+    const told = await getAnswerCounts().catch(() => null);
+    res.json({ ...results, summary_sentence: teamSentence(results.variants), what_players_told_us: told });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Error querying team results";
     res.status(500).json({ error: message });

@@ -450,3 +450,14 @@ p, li, div {
   letter-spacing: 0.04em;
   text-align: center;
 }
+
+.if-real { margin: 10px 0 4px; font-size: 20px; }
+
+/* Optional questions on the final summary */
+.questions { margin: 18px 0; border: 2px solid #cbd5e1; border-radius: 12px; padding: 12px; background: #fff; }
+.q-text { font-size: 18px; font-weight: 700; margin: 10px 0 6px; }
+.q-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.q-opt { min-height: 48px; font-size: 18px; border: 2px solid #334155; border-radius: 10px; background: #fff; cursor: pointer; }
+.q-opt[aria-pressed="true"] { background: #1e3a8a; color: #fff; border-color: #1e3a8a; }
+.q-opt[aria-pressed="true"]::before { content: "✓ "; }
+.q-actions { display: grid; gap: 8px; margin-top: 12px; }

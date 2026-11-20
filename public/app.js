@@ -86,7 +86,7 @@
   function renderStartScreen() {
     container.innerHTML = `
       <h1>Torvant Drill</h1>
-      <p class="lead-text">AI agents ask a person before risky actions. Can you spot the risky ones?</p>
+      <p class="lead-text">You are the developer on duty at Kaveri Retail, a made up store. Your coding agent asks you before each action. One wrong tap can open customer data to the internet.</p>
       
       <div class="info-note">
         <strong>Drill Details:</strong><br>
@@ -97,6 +97,7 @@
         <br>
         <em>Your Session ID: ${playerId}</em>
       </div>
+      <p class="info-note">One round shows requests the way agents ask today. If the commands are hard to read, that is the point.</p>
 
       <div class="thumb-actions">
         <button id="startBtn" class="btn-large btn-primary" aria-label="Start Torvant Drill">
@@ -346,7 +347,12 @@
     }
 
     let riskyCardsHtml = "";
-    score.riskyBreakdown.forEach((item) => {
+    // Risky requests the player approved come first.
+    const missedFirst = score.riskyBreakdown
+      .map((item, i) => ({ item, i }))
+      .sort((a, b) => (b.item.decision === "approved") - (a.item.decision === "approved") || a.i - b.i)
+      .map((x) => x.item);
+    missedFirst.forEach((item) => {
       const statusSymbol = item.caught ? "✓ [CAUGHT]" : "✕ [MISSED]";
       const itemClass = item.caught ? "caught" : "missed";
       riskyCardsHtml += `
@@ -356,6 +362,7 @@
           <div class="choice-badge">
             Your decision: ${formatChoice(item.decision)} &nbsp; <strong>${statusSymbol}</strong>
           </div>
+          ${item.decision === "approved" ? `<h4 class="if-real">If this were real</h4>` : ""}
           <div class="explanation-text">
             <strong>Why a careful person denies it:</strong><br>
             ${escapeHtml(item.denialReason)}
@@ -451,9 +458,27 @@
         </div>
       </div>
 
+      <section class="questions" id="questions" aria-label="Two optional questions">
+        <h3>Two optional questions</h3>
+        <p class="q-text">On a normal work day, how many agent requests do you approve?</p>
+        <div class="q-options" data-q="approvals_per_day">
+          ${["None", "1 to 10", "11 to 50", "More than 50"].map((o) => `<button type="button" class="q-opt" aria-pressed="false">${o}</button>`).join("")}
+        </div>
+        <p class="q-text">How many of them do you read fully?</p>
+        <div class="q-options" data-q="read_share">
+          ${["All", "Most", "Some", "Almost none"].map((o) => `<button type="button" class="q-opt" aria-pressed="false">${o}</button>`).join("")}
+        </div>
+        <div class="q-actions">
+          <button type="button" id="qSend" class="btn-large btn-primary" disabled aria-label="Send answers">Send answers</button>
+          <button type="button" id="qSkip" class="btn-explain" aria-label="Skip the questions">Skip</button>
+        </div>
+      </section>
+
       <div class="info-note">
         <strong>Drill Takeaway:</strong> High-performing reviewers balance spotting critical security risks without indiscriminately blocking safe developer actions.
       </div>
+
+      <p class="lead-text">For any team whose developers use coding agents. The team report is what a security lead gets.</p>
 
       <div class="thumb-actions">
         <a href="/team" class="btn-large btn-primary" style="text-decoration: none;" aria-label="View Team Results">
@@ -471,6 +496,7 @@
     document.getElementById("restartBtn").addEventListener("click", () => {
       location.reload();
     });
+    wireQuestions();
   }
 
   // "Explain with Gemini (live)": calls Gemini now, with a timeout on the server.
@@ -525,6 +551,38 @@
         <div><strong>Fits the task?</strong> ${t.fits_task === "yes" ? "Yes" : "No"}. ${escapeHtml(t.fits_task_why)}</div>
         <div><strong>Reach:</strong> ${escapeHtml(t.reach)}</div>
       </div>`;
+  }
+
+  // Optional questions. Sending never waits and never breaks the screen.
+  function wireQuestions() {
+    const box = document.getElementById("questions");
+    if (!box) return;
+    const answers = {};
+    const send = document.getElementById("qSend");
+    box.querySelectorAll(".q-options").forEach((group) => {
+      group.querySelectorAll(".q-opt").forEach((opt) => {
+        opt.addEventListener("click", () => {
+          group.querySelectorAll(".q-opt").forEach((o) => o.setAttribute("aria-pressed", "false"));
+          opt.setAttribute("aria-pressed", "true");
+          answers[group.dataset.q] = opt.textContent.trim();
+          send.disabled = false;
+        });
+      });
+    });
+    send.addEventListener("click", () => {
+      try {
+        fetch("/api/answers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(Object.assign({ play_id: playId, player_id: playerId }, answers)),
+          keepalive: true
+        }).catch(() => {});
+      } catch (_) {}
+      box.innerHTML = `<p class="info-note">Thank you.</p>`;
+    });
+    document.getElementById("qSkip").addEventListener("click", () => {
+      box.remove();
+    });
   }
 
   function escapeHtml(text) {

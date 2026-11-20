@@ -54,6 +54,7 @@
     </div>
 
     <div id="contentBox" style="display: none;">
+      <p class="lead-text" id="teamSentence" style="font-weight: 800;"></p>
       <div id="sampleWarning" style="display: none; margin-bottom: 20px;">
         <span class="sample-badge">⚠️ Small sample</span>
       </div>
@@ -75,6 +76,12 @@
             <p class="info-note" style="font-size: 18px;">No data yet.</p>
           </div>
         </div>
+      </div>
+
+      <div style="margin-bottom: 28px;">
+        <h2>What players told us</h2>
+        <p style="margin-bottom: 12px;"><span class="sample-badge">Self reported, small sample</span></p>
+        <div id="toldContainer" style="background: #ffffff; border: 2px solid #cbd5e1; border-radius: 12px;"></div>
       </div>
 
       <div style="margin-bottom: 28px;">
@@ -100,6 +107,22 @@
 
         document.getElementById('loadingBox').style.display = 'none';
         document.getElementById('contentBox').style.display = 'block';
+
+        // One sentence worked out by the server code
+        document.getElementById('teamSentence').textContent = data.summary_sentence || '';
+
+        // What players told us (answers table)
+        const told = data.what_players_told_us;
+        const toldEl = document.getElementById('toldContainer');
+        if (!told || !told.total) {
+          toldEl.innerHTML = '<div class="info-note" style="border: none;">No answers yet.</div>';
+        } else {
+          const block = (title, counts) => `<div class="risk-type-row" style="display:block;"><strong>${title}</strong>` +
+            Object.entries(counts).map(([k, n]) => `<div style="display:flex;justify-content:space-between;"><span>${k}</span><span class="stat-val">${n}</span></div>`).join('') + '</div>';
+          toldEl.innerHTML = block('Agent requests approved on a normal work day', told.approvals_per_day) +
+            block('How many of them they read fully', told.read_share) +
+            `<div class="risk-type-row">Answers so far: <span class="stat-val">${told.total}</span></div>`;
+        }
 
         // Players count
         document.getElementById('playersCount').textContent = `👥 Players so far: ${data.total_players}`;
